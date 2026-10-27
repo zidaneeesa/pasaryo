@@ -1,16 +1,6 @@
-# Virtual Environment
-venv/
-env/
-ENV/
-
-# Database SQLite lokal (biar temanmu generate sendiri saat migrate)
-db.sqlite3
-
-# Python cache
+.venv/
 __pycache__/
 *.py[cod]
-*$py.class
-
-# IDE settings
-.vscode/
-.idea/
+.env
+db.sqlite3
+db.sqlite3-*
