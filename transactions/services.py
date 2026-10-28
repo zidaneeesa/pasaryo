@@ -1,9 +1,11 @@
 from decimal import Decimal, ROUND_HALF_UP
+from uuid import uuid4
 
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.db import transaction
 
-from .models import DiscountType, Order, PromoCode
+from .models import DiscountType, Order, Payment, PaymentMethod, PromoCode
 
 
 CENT = Decimal("0.01")
@@ -114,3 +116,84 @@ def validate_promo_code(*, user, code, subtotal):
     )
 
     return promo, discount
+
+@transaction.atomic
+def create_payment_transaction(*, user, order_id, payment_method_id):
+    if (
+        not getattr(user, "is_authenticated", False)
+        or not getattr(user, "is_active", False)
+        or not getattr(user, "pk", None)
+    ):
+        raise ValidationError("Silakan login terlebih dahulu.")
+
+    order = (
+        Order.objects
+        .select_for_update()
+        .filter(pk=order_id, user=user)
+        .first()
+    )
+
+    if order is None:
+        raise ValidationError("Pesanan tidak ditemukan.")
+
+    if order.status != Order.Status.TO_PAY:
+        raise ValidationError(
+            "Pesanan tidak dalam status menunggu pembayaran."
+        )
+
+    payment_method = (
+        PaymentMethod.objects
+        .select_for_update()
+        .filter(pk=payment_method_id, is_active=True)
+        .first()
+    )
+
+    if payment_method is None:
+        raise ValidationError("Metode pembayaran tidak tersedia.")
+
+    # Checkout nanti harus menghitung biaya memakai metode yang dipilih.
+    if order.service_fee != payment_method.service_fee:
+        raise ValidationError(
+            "Biaya layanan pesanan tidak sesuai metode pembayaran."
+        )
+
+    expected_total = (
+        order.subtotal
+        + order.shipping_fee
+        + order.service_fee
+        - order.discount_amount
+    )
+
+    if (
+        order.subtotal <= 0
+        or order.shipping_fee < 0
+        or order.service_fee < 0
+        or order.discount_amount < 0
+        or order.discount_amount > order.subtotal
+        or order.total_amount <= 0
+        or order.total_amount != expected_total
+    ):
+        raise ValidationError("Rincian total pesanan tidak valid.")
+
+    if order.payments.filter(
+        payment_status=Payment.Status.SUCCESS
+    ).exists():
+        raise ValidationError("Pesanan sudah memiliki pembayaran sukses.")
+
+    # Membuat percobaan baru tidak memperpanjang batas waktu pesanan.
+    if (
+        order.payment_due_at is None
+        or order.payment_due_at <= timezone.now()
+    ):
+        raise ValidationError(
+            "Batas waktu pembayaran belum tersedia atau sudah kedaluwarsa."
+        )
+
+    return Payment.objects.create(
+        order=order,
+        payment_method=payment_method,
+        payment_reference=f"PAY-{uuid4().hex.upper()}",
+        payment_amount=order.total_amount,
+        payment_status=Payment.Status.PENDING,
+        expires_at=order.payment_due_at,
+    )

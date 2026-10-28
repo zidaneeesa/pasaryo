@@ -25,4 +25,14 @@ urlpatterns = [
         views.order_tracking,
         name="order-tracking",
     ),
+    path(
+        "orders/<int:order_id>/",
+        views.order_detail,
+        name="order-detail",
+    ),
+    path(
+        "orders/<int:order_id>/payments/",
+        views.payment_create,
+        name="payment-create",
+    ),
 ]
