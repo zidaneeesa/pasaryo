@@ -65,3 +65,33 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+    
+
+class UserAddress(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="addresses",
+    )
+    label = models.CharField(max_length=50)
+    recipient_name = models.CharField(max_length=150)
+    recipient_phone = models.CharField(max_length=20)
+    street_address = models.TextField()
+    subdistrict = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+    province = models.CharField(max_length=100)
+    postal_code = models.CharField(max_length=10)
+    is_main = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "user_addresses"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=models.Q(is_main=True),
+                name="unique_main_address_per_user",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.label} - {self.recipient_name}"

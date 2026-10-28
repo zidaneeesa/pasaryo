@@ -1,4 +1,5 @@
 from django.urls import path
+from . import address_views
 
 from . import views
 
@@ -15,5 +16,20 @@ urlpatterns = [
         "change-password/",
         views.password_change_view,
         name="change_password",
+    ),
+    path(
+        "addresses/",
+        address_views.address_list_view,
+        name="address_list",
+    ),
+    path(
+        "addresses/<int:address_id>/",
+        address_views.address_detail_view,
+        name="address_detail",
+    ),
+    path(
+        "addresses/<int:address_id>/main/",
+        address_views.address_main_view,
+        name="address_main",
     ),
 ]
