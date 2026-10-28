@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
     'accounts',
     "transactions.apps.TransactionsConfig",
+    "catalog.apps.CatalogConfig",
 ]
 
 MIDDLEWARE = [
