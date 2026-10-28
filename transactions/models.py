@@ -1,6 +1,6 @@
 from django.db import models
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 
 class ShippingMethod(models.Model):
@@ -343,3 +343,35 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.order_id} - {self.product_name_snapshot}"
+
+
+class Review(models.Model):
+    order_item = models.OneToOneField(
+        "OrderItem",
+        on_delete=models.CASCADE,
+        related_name="review",
+    )
+    rating = models.PositiveSmallIntegerField(
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(5),
+        ],
+    )
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "reviews"
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(
+                    rating__gte=1,
+                    rating__lte=5,
+                ),
+                name="review_rating_between_1_and_5",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Review item {self.order_item_id}: {self.rating}/5"
