@@ -35,4 +35,30 @@ urlpatterns = [
         views.payment_create,
         name="payment-create",
     ),
+    path(
+        "cart/",
+        views.cart_collection,
+        name="cart",
+    ),
+    path(
+        "cart/<int:cart_item_id>/",
+        views.cart_item_detail,
+        name="cart-item",
+    ),
+    path(
+        "promo-codes/validate/",
+        views.promo_code_validate,
+        name="promo-code-validate",
+    ),
+    path(
+        "orders/<int:order_id>/complete/",
+        views.order_complete,
+        name="order-complete",
+    ),
+    path("checkout/", views.checkout_create, name="checkout"),
+    path(
+        "orders/<int:order_id>/cancel/",
+        views.order_cancel,
+        name="order-cancel",
+    ),
 ]

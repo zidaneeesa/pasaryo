@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.core.validators import MinValueValidator
 
 
 class ShippingMethod(models.Model):
@@ -147,11 +148,31 @@ class Order(models.Model):
         null=True,
         blank=True,
     )
+    checkout_key = models.UUIDField(
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    checkout_payload = models.JSONField(
+        default=dict,
+        blank=True,
+        editable=False,
+    )
+    stock_deducted = models.BooleanField(
+        default=False,
+        editable=False,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "orders"
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "checkout_key"],
+                name="unique_checkout_key_per_user",
+            ),
+        ]
 
     def __str__(self):
         return self.order_number
@@ -198,6 +219,7 @@ class Payment(models.Model):
         SUCCESS = "SUCCESS", "Success"
         FAILED = "FAILED", "Failed"
         EXPIRED = "EXPIRED", "Expired"
+        CANCELLED = "CANCELLED", "Cancelled"
 
     order = models.ForeignKey(
         "Order",
@@ -240,3 +262,84 @@ class Payment(models.Model):
 
     def __str__(self):
         return self.payment_reference
+        
+class Cart(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="cart_items",
+    )
+    product_variant = models.ForeignKey(
+        "catalog.ProductVariant",
+        on_delete=models.CASCADE,
+        related_name="cart_items",
+    )
+    quantity = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+    )
+
+    class Meta:
+        db_table = "carts"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "product_variant"],
+                name="unique_cart_item",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantity__gte=1),
+                name="cart_quantity_gte_one",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"User {self.user_id} - "
+            f"Variant {self.product_variant_id} ({self.quantity})"
+        )
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(
+        "Order",
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    product_variant = models.ForeignKey(
+        "catalog.ProductVariant",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_items",
+    )
+    product_name_snapshot = models.CharField(max_length=200)
+    variant_name_snapshot = models.CharField(max_length=100)
+    sku_snapshot = models.CharField(max_length=64)
+    quantity = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+    )
+    price_at_purchase = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+    )
+
+    class Meta:
+        db_table = "order_items"
+        ordering = ["id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(quantity__gte=1),
+                name="order_item_quantity_gte_one",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(price_at_purchase__gte=0),
+                name="order_item_price_nonnegative",
+            ),
+        ]
+
+    @property
+    def line_total(self):
+        return self.price_at_purchase * self.quantity
+
+    def __str__(self):
+        return f"{self.order_id} - {self.product_name_snapshot}"
