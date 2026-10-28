@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'accounts',
     "transactions.apps.TransactionsConfig",
     "catalog.apps.CatalogConfig",
+    "promotions.apps.PromotionsConfig",
 ]
 
 MIDDLEWARE = [

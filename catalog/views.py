@@ -5,15 +5,22 @@ from django.views.decorators.http import require_GET
 from .forms import ProductFilterForm
 from .models import Brand, Category, Product
 
+from promotions.services import (
+    get_product_pricing,
+    with_product_promotions,
+)
 
 def product_queryset():
-    return Product.objects.select_related(
+    products = Product.objects.select_related(
         "category", "brand"
     ).prefetch_related("images")
+
+    return with_product_promotions(products)
 
 
 def product_data(product, detail=False):
     images = list(product.images.all())
+    pricing = get_product_pricing(product)
 
     data = {
         "id": product.pk,
@@ -29,6 +36,10 @@ def product_data(product, detail=False):
             "name": product.brand.name,
         },
         "image_url": images[0].image_url if images else None,
+        "discount_percentage": str(pricing["discount_percentage"]),
+        "discount_amount": str(pricing["discount_amount"]),
+        "final_price": str(pricing["final_price"]),
+        "promotion": pricing["promotion"],
     }
 
     if detail:
