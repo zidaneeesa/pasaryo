@@ -23,3 +23,12 @@ class ReviewForm(forms.ModelForm):
                 "Komentar harus berupa teks."
             )
         return self.cleaned_data["comment"]
+
+
+class ReviewPageForm(forms.Form):
+    page = forms.IntegerField(required=False, min_value=1)
+    page_size = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=100,
+    )
