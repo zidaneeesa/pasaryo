@@ -10,22 +10,36 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
+import sys
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-i*35!%$$s6j8rez0h87tp8$a=dbbis4s(eh3h#@h-+%h_qt-n&'
+SECRET_KEY = os.getenv(
+    'SECRET_KEY',
+    'django-insecure-i*35!%$$s6j8rez0h87tp8$a=dbbis4s(eh3h#@h-+%h_qt-n&',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.getenv('ALLOWED_HOSTS', '').split(',')
+    if h.strip()
+]
 
 
 # Application definition
@@ -78,19 +92,61 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+
+def build_database_config(base_dir):
+    is_testing = "test" in sys.argv
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    db_name = os.getenv("DB_NAME", "").strip()
+
+    if not is_testing and database_url:
+        parsed = urlparse(database_url)
+        query = parse_qs(parsed.query)
+        options = {k: v[-1] for k, v in query.items() if v}
+
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": unquote(parsed.path.lstrip("/")),
+            "USER": unquote(parsed.username or ""),
+            "PASSWORD": unquote(parsed.password or ""),
+            "HOST": parsed.hostname or "",
+            "PORT": str(parsed.port or 5432),
+            "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
+            "OPTIONS": options,
+        }
+
+    if not is_testing and db_name:
+        options = {}
+        sslmode = os.getenv("DB_SSLMODE", "").strip()
+        if sslmode:
+            options["sslmode"] = sslmode
+
+        return {
+            "ENGINE": os.getenv(
+                "DB_ENGINE",
+                "django.db.backends.postgresql",
+            ),
+            "NAME": db_name,
+            "USER": os.getenv("DB_USER", ""),
+            "PASSWORD": os.getenv("DB_PASSWORD", ""),
+            "HOST": os.getenv("DB_HOST", "localhost"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+            "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
+            "OPTIONS": options,
+        }
+
+    return {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": base_dir / "db.sqlite3",
+        "OPTIONS": {
+            "transaction_mode": "IMMEDIATE",
+            "timeout": 20,
+        },
     }
 
-}
 
-if DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3":
-    DATABASES["default"].setdefault("OPTIONS", {}).update({
-        "transaction_mode": "IMMEDIATE",
-        "timeout": 20,
-    })
+DATABASES = {
+    "default": build_database_config(BASE_DIR),
+}
 
 
 # Password validation
