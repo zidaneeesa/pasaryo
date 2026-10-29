@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Wishlist Produk Tersimpan | Pasaryo{% endblock %}
+
+{% block content %}
+<section class="page-lead" aria-labelledby="wishlist-heading">
+  <div>
+    <h1 id="wishlist-heading">Wishlist Produk Tersimpan</h1>
+    <p>Simpan produk incaran Anda dan pantau potongan harga maupun ketersediaan varian.</p>
+  </div>
+  <div>
+    <a href="/" class="btn btn-secondary">Tambah Produk dari Katalog</a>
+  </div>
+</section>
+
+<div id="wishlist-loading" class="skeleton-grid" aria-busy="true" aria-label="Sedang memuat wishlist">
+  <div class="skeleton-card"></div>
+  <div class="skeleton-card"></div>
+  <div class="skeleton-card"></div>
+</div>
+
+<div id="wishlist-auth-required" class="state-box" hidden>
+  <h2>Masuk untuk Melihat Wishlist</h2>
+  <p>Daftar produk tersimpan terhubung langsung dengan akun Pasaryo Anda.</p>
+  <a href="/akun/" class="btn btn-primary">Masuk atau Daftar Akun</a>
+</div>
+
+<div id="wishlist-error" class="state-box state-error" role="alert" hidden>
+  <h2>Gagal Memuat Wishlist</h2>
+  <p id="wishlist-error-msg">Terjadi gangguan saat memuat produk tersimpan.</p>
+  <button type="button" id="wishlist-retry-btn" class="btn btn-secondary">Muat Ulang Wishlist</button>
+</div>
+
+<div id="wishlist-empty" class="state-box" hidden>
+  <h2>Wishlist Anda Masih Kosong</h2>
+  <p>Anda belum menyimpan produk apa pun ke dalam daftar pantauan.</p>
+  <a href="/" class="btn btn-primary">Jelajahi Katalog Produk</a>
+</div>
+
+<div id="wishlist-toolbar" class="catalog-toolbar" hidden>
+  <span id="wishlist-count-label" class="mono-num">0 produk tersimpan</span>
+</div>
+
+<div id="wishlist-grid" class="product-grid" hidden></div>
+
+<nav id="wishlist-pagination" class="pagination-bar" aria-label="Navigasi halaman wishlist" hidden>
+  <span id="wishlist-page-info" class="text-muted mono-num">Halaman 1 dari 1</span>
+  <div class="pagination-controls">
+    <button type="button" id="wishlist-prev-btn" class="btn btn-secondary btn-sm">Sebelumnya</button>
+    <button type="button" id="wishlist-next-btn" class="btn btn-secondary btn-sm">Berikutnya</button>
+  </div>
+</nav>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/wishlist.js' %}"></script>
+{% endblock %}
+

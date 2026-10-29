@@ -17,7 +17,38 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from . import frontend_views
+
 urlpatterns = [
+    path("", frontend_views.catalog_page, name="page-catalog"),
+    path(
+        "produk/<int:product_id>/",
+        frontend_views.product_detail_page,
+        name="page-product-detail",
+    ),
+    path(
+        "wishlist-saya/",
+        frontend_views.wishlist_page,
+        name="page-wishlist",
+    ),
+    path("keranjang/", frontend_views.cart_page, name="page-cart"),
+    path("pesanan/", frontend_views.orders_page, name="page-orders"),
+    path(
+        "pesanan/<int:order_id>/",
+        frontend_views.order_detail_page,
+        name="page-order-detail",
+    ),
+    path("akun/", frontend_views.account_page, name="page-account"),
+    path(
+        "frontend-api/products/<int:product_id>/reviews/",
+        frontend_views.product_reviews_api,
+        name="frontend-product-reviews",
+    ),
+    path(
+        "frontend-api/orders/<int:order_id>/reviews/",
+        frontend_views.order_reviews_api,
+        name="frontend-order-reviews",
+    ),
     path("admin/", admin.site.urls),
     path("api/", include("transactions.urls")),
     path('accounts/', include('accounts.urls')),

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Detail Produk | Pasaryo{% endblock %}
+
+{% block content %}
+<div id="product-detail-root" data-product-id="{{ product_id }}">
+  <div style="margin-bottom: var(--space-4);">
+    <a href="/" class="btn btn-subtle btn-sm">Kembali ke Katalog Produk</a>
+  </div>
+
+  <div id="detail-loading" class="state-box" aria-busy="true">
+    <h2>Memuat Rincian Produk</h2>
+    <p>Mengambil informasi varian, ketersediaan stok, dan promo aktif...</p>
+  </div>
+
+  <div id="detail-error" class="state-box state-error" role="alert" hidden>
+    <h2>Produk Tidak Dapat Dimuat</h2>
+    <p id="detail-error-msg">Produk tidak ditemukan atau terjadi gangguan jaringan.</p>
+    <div style="display: flex; justify-content: center; gap: var(--space-3); flex-wrap: wrap;">
+      <button type="button" id="detail-retry-btn" class="btn btn-secondary">Muat Ulang Detail Produk</button>
+      <a href="/" class="btn btn-primary">Kembali ke Katalog</a>
+    </div>
+  </div>
+
+  <div id="detail-content" hidden>
+    <div class="detail-workspace">
+      <section aria-label="Galeri foto produk">
+        <div id="gallery-main-box" class="gallery-main"></div>
+        <div id="gallery-thumbs-box" class="gallery-thumbs" role="group" aria-label="Pilih foto produk"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="detail-product-name">
+        <div id="detail-meta-line" class="text-muted" style="margin-bottom: var(--space-2);"></div>
+        <h1 id="detail-product-name">Nama Produk</h1>
+
+        <div id="detail-promo-banner" class="panel-subtle" style="margin-block: var(--space-3);" hidden>
+          <span id="detail-promo-badge" class="badge badge-accent">Promo Aktif</span>
+          <strong id="detail-promo-name" style="margin-left: var(--space-2);"></strong>
+        </div>
+
+        <div class="product-pricing" style="margin-bottom: var(--space-4);">
+          <span id="detail-final-price" class="price-final" style="font-size: 1.65rem;">Rp 0</span>
+          <span id="detail-original-price" class="price-original" hidden>Rp 0</span>
+        </div>
+
+        <p id="detail-description" class="text-secondary"></p>
+
+        <hr style="border: none; border-top: 1px solid var(--border-subtle); margin-block: var(--space-4);">
+
+        <form id="add-to-cart-form" novalidate>
+          <div class="field-error" data-form-alert role="alert" hidden></div>
+
+          <div class="form-group">
+            <span class="form-label" id="variant-group-label">Pilih Varian Warna</span>
+            <div id="variant-pills" class="variant-grid" role="group" aria-labelledby="variant-group-label"></div>
+            <div id="selected-variant-meta" class="form-hint mono-num">Pilih salah satu varian untuk melihat SKU dan stok.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="buy-quantity" class="form-label">Jumlah Pembelian</label>
+            <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+              <div class="qty-stepper">
+                <button type="button" id="qty-minus-btn" class="qty-btn" aria-label="Kurangi jumlah">-</button>
+                <input
+                  type="number"
+                  id="buy-quantity"
+                  name="quantity"
+                  class="qty-input"
+                  value="1"
+                  min="1"
+                  max="99"
+                >
+                <button type="button" id="qty-plus-btn" class="qty-btn" aria-label="Tambah jumlah">+</button>
+              </div>
+              <span id="stock-status-badge" class="badge badge-neutral">Memeriksa stok</span>
+            </div>
+            <div class="field-error" data-error-for="quantity" role="alert" hidden></div>
+          </div>
+
+          <div style="display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5);">
+            <button type="submit" id="add-cart-submit-btn" class="btn btn-primary" style="flex: 1 1 220px;">
+              Tambah ke Keranjang
+            </button>
+            <button type="button" id="detail-wishlist-btn" class="btn btn-secondary">
+              Simpan ke Wishlist
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="split-workspace" style="margin-top: var(--space-6);">
+      <section class="panel" aria-labelledby="spec-heading">
+        <h2 id="spec-heading">Spesifikasi & Informasi Pengiriman</h2>
+        <dl id="detail-spec-list" class="spec-list"></dl>
+      </section>
+
+      <section class="panel" aria-labelledby="reviews-heading">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3);">
+          <h2 id="reviews-heading" style="margin-bottom: 0;">Ulasan Pembeli</h2>
+          <span id="reviews-summary-badge" class="badge badge-neutral mono-num">0 ulasan</span>
+        </div>
+
+        <div id="reviews-loading" class="text-muted" aria-busy="true">Memuat ulasan produk...</div>
+
+        <div id="reviews-empty" class="panel-subtle" hidden>
+          <p style="margin-bottom: var(--space-2);"><strong>Belum ada ulasan untuk produk ini.</strong></p>
+          <p class="text-muted" style="margin-bottom: var(--space-3);">
+            Ulasan hanya dapat dikirim oleh pembeli yang telah menyelesaikan pesanan produk ini.
+          </p>
+          <a href="/pesanan/" class="btn btn-secondary btn-sm">Lihat Pesanan Selesai Saya</a>
+        </div>
+
+        <div id="reviews-list" class="record-list" hidden></div>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/product-detail.js' %}"></script>
+{% endblock %}
+

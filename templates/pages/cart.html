@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Keranjang Belanja & Checkout | Pasaryo{% endblock %}
+
+{% block content %}
+<section class="page-lead" aria-labelledby="cart-heading">
+  <div>
+    <h1 id="cart-heading">Keranjang Belanja & Checkout</h1>
+    <p>Periksa ketersediaan stok varian, gunakan kode promo, dan pilih pengiriman serta metode pembayaran.</p>
+  </div>
+  <div>
+    <a href="/" class="btn btn-secondary">Lanjut Belanja Produk</a>
+  </div>
+</section>
+
+<div id="cart-loading" class="state-box" aria-busy="true">
+  <h2>Memuat Keranjang Belanja</h2>
+  <p>Mengambil daftar barang, alamat pengiriman, serta opsi kurir dan pembayaran...</p>
+</div>
+
+<div id="cart-auth-required" class="state-box" hidden>
+  <h2>Masuk untuk Mengakses Keranjang</h2>
+  <p>Keranjang belanja dan proses checkout memerlukan akun Pasaryo yang aktif.</p>
+  <a href="/akun/" class="btn btn-primary">Masuk atau Daftar Akun</a>
+</div>
+
+<div id="cart-error" class="state-box state-error" role="alert" hidden>
+  <h2>Gagal Memuat Keranjang</h2>
+  <p id="cart-error-msg">Terjadi kendala saat mengambil data keranjang belanja Anda.</p>
+  <button type="button" id="cart-retry-btn" class="btn btn-secondary">Muat Ulang Keranjang</button>
+</div>
+
+<div id="cart-empty" class="state-box" hidden>
+  <h2>Keranjang Belanja Anda Kosong</h2>
+  <p>Belum ada varian produk yang ditambahkan ke keranjang belanja.</p>
+  <a href="/" class="btn btn-primary">Pilih Produk di Katalog</a>
+</div>
+
+<div id="cart-workspace" class="split-workspace" hidden>
+  <section aria-labelledby="cart-items-heading">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3);">
+      <h2 id="cart-items-heading" style="margin-bottom: 0;">Daftar Barang</h2>
+      <span id="cart-total-qty-badge" class="badge badge-neutral mono-num">0 barang</span>
+    </div>
+
+    <div id="cart-stock-alert" class="state-box state-error" role="alert" style="text-align: left; padding: var(--space-4);" hidden>
+      <strong>Perhatian Ketersediaan Stok:</strong>
+      <p style="margin-bottom: 0;">Salah satu barang di keranjang melebihi stok varian yang tersedia. Kurangi jumlah atau hapus barang tersebut sebelum melanjutkan checkout.</p>
+    </div>
+
+    <div id="cart-items-list" class="record-list"></div>
+  </section>
+
+  <aside class="panel summary-rail" aria-labelledby="checkout-summary-heading">
+    <h2 id="checkout-summary-heading">Pengiriman & Pembayaran</h2>
+
+    <form id="promo-validate-form" style="margin-bottom: var(--space-5);" novalidate>
+      <div class="form-group" style="margin-bottom: var(--space-2);">
+        <label for="promo-code-input" class="form-label">Kode Promo</label>
+        <div style="display: flex; gap: var(--space-2);">
+          <input
+            type="text"
+            id="promo-code-input"
+            name="code"
+            class="form-control mono-num"
+            placeholder="Contoh: HEMAT10"
+            maxlength="50"
+          >
+          <button type="submit" id="promo-apply-btn" class="btn btn-secondary" style="white-space: nowrap;">
+            Cek Kode Promo
+          </button>
+        </div>
+        <div class="field-error" data-error-for="code" role="alert" hidden></div>
+      </div>
+      <div id="promo-active-banner" class="panel-subtle" style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);" hidden>
+        <span id="promo-active-text" class="mono-num" style="font-size: 0.875rem; font-weight: 700;"></span>
+        <button type="button" id="promo-clear-btn" class="btn btn-subtle btn-sm">Lepas Promo</button>
+      </div>
+    </form>
+
+    <form id="checkout-form" novalidate>
+      <div class="field-error" data-form-alert role="alert" style="margin-bottom: var(--space-3);" hidden></div>
+
+      <div class="form-group">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2);">
+          <label for="checkout-address-select" class="form-label">Alamat Pengiriman</label>
+          <a href="/akun/#alamat" class="text-muted" style="font-size: 0.8125rem; font-weight: 600;">Kelola Alamat</a>
+        </div>
+        <select id="checkout-address-select" name="address_id" class="form-control"></select>
+        <div id="checkout-address-preview" class="form-hint"></div>
+        <div class="field-error" data-error-for="address_id" role="alert" hidden></div>
+      </div>
+
+      <div class="form-group">
+        <span class="form-label" id="shipping-group-label">Metode Pengiriman</span>
+        <div id="checkout-shipping-list" class="choice-stack" role="radiogroup" aria-labelledby="shipping-group-label"></div>
+        <div class="field-error" data-error-for="shipping_method_id" role="alert" hidden></div>
+      </div>
+
+      <div class="form-group">
+        <span class="form-label" id="payment-group-label">Metode Pembayaran</span>
+        <div id="checkout-payment-list" class="choice-stack" role="radiogroup" aria-labelledby="payment-group-label"></div>
+        <div class="field-error" data-error-for="payment_method_id" role="alert" hidden></div>
+      </div>
+
+      <div class="summary-rows">
+        <div class="summary-line">
+          <span class="text-secondary">Subtotal Barang</span>
+          <span id="summary-subtotal" class="mono-num">Rp 0</span>
+        </div>
+        <div class="summary-line">
+          <span class="text-secondary">Biaya Pengiriman</span>
+          <span id="summary-shipping" class="mono-num">Rp 0</span>
+        </div>
+        <div class="summary-line">
+          <span class="text-secondary">Biaya Layanan Pembayaran</span>
+          <span id="summary-service" class="mono-num">Rp 0</span>
+        </div>
+        <div id="summary-discount-row" class="summary-line" style="color: var(--status-success-fg); font-weight: 700;" hidden>
+          <span>Potongan Kode Promo</span>
+          <span id="summary-discount" class="mono-num">-Rp 0</span>
+        </div>
+        <div class="summary-total">
+          <span>Total Pembayaran</span>
+          <span id="summary-total" class="mono-num">Rp 0</span>
+        </div>
+      </div>
+
+      <button type="submit" id="checkout-submit-btn" class="btn btn-primary btn-block">
+        Buat Pesanan Sekarang
+      </button>
+    </form>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/cart.js' %}"></script>
+{% endblock %}
+

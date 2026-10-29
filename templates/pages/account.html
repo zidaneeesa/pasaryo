@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Pengaturan Akun & Buku Alamat | Pasaryo{% endblock %}
+
+{% block content %}
+<section class="page-lead" aria-labelledby="account-heading">
+  <div>
+    <h1 id="account-heading">Akun & Buku Alamat Pengiriman</h1>
+    <p>Kelola kredensial masuk, informasi profil pribadi, keamanan kata sandi, dan alamat tujuan pengiriman.</p>
+  </div>
+  <div id="account-logout-wrap" hidden>
+    <button type="button" id="logout-btn" class="btn btn-danger">Keluar dari Akun</button>
+  </div>
+</section>
+
+<div id="account-loading" class="state-box" aria-busy="true">
+  <h2>Memeriksa Sesi Akun</h2>
+  <p>Mengambil profil pengguna dan daftar alamat pengiriman...</p>
+</div>
+
+<!-- Guest View: Login & Register -->
+<div id="guest-workspace" style="max-width: 560px; margin-inline: auto;" hidden>
+  <div class="tab-bar" role="tablist" aria-label="Pilih masuk atau daftar akun">
+    <button
+      type="button"
+      id="tab-btn-login"
+      class="tab-btn"
+      role="tab"
+      aria-selected="true"
+      aria-controls="panel-login"
+    >
+      Masuk ke Akun
+    </button>
+    <button
+      type="button"
+      id="tab-btn-register"
+      class="tab-btn"
+      role="tab"
+      aria-selected="false"
+      aria-controls="panel-register"
+    >
+      Daftar Akun Baru
+    </button>
+  </div>
+
+  <section id="panel-login" class="panel" role="tabpanel" aria-labelledby="tab-btn-login">
+    <h2>Masuk ke Pasaryo</h2>
+    <p class="text-secondary">Masukkan alamat email dan kata sandi yang terdaftar.</p>
+    <form id="login-form" novalidate>
+      <div class="field-error" data-form-alert role="alert" style="margin-bottom: var(--space-3);" hidden></div>
+
+      <div class="form-group">
+        <label for="login-email" class="form-label">Alamat Email</label>
+        <input
+          type="email"
+          id="login-email"
+          name="email"
+          class="form-control"
+          autocomplete="email"
+          placeholder="nama@email.com"
+          required
+        >
+        <div class="field-error" data-error-for="email" role="alert" hidden></div>
+      </div>
+
+      <div class="form-group">
+        <label for="login-password" class="form-label">Kata Sandi</label>
+        <input
+          type="password"
+          id="login-password"
+          name="password"
+          class="form-control"
+          autocomplete="current-password"
+          placeholder="Masukkan kata sandi"
+          required
+        >
+        <div class="field-error" data-error-for="password" role="alert" hidden></div>
+      </div>
+
+      <button type="submit" id="login-submit-btn" class="btn btn-primary btn-block">
+        Masuk Sekarang
+      </button>
+    </form>
+  </section>
+
+  <section id="panel-register" class="panel" role="tabpanel" aria-labelledby="tab-btn-register" hidden>
+    <h2>Buat Akun Pasaryo Baru</h2>
+    <p class="text-secondary">Lengkapi nama dan email untuk mulai berbelanja serta menyimpan alamat.</p>
+    <form id="register-form" novalidate>
+      <div class="field-error" data-form-alert role="alert" style="margin-bottom: var(--space-3);" hidden></div>
+
+      <div class="form-group">
+        <label for="reg-full-name" class="form-label">Nama Lengkap</label>
+        <input
+          type="text"
+          id="reg-full-name"
+          name="full_name"
+          class="form-control"
+          autocomplete="name"
+          placeholder="Contoh: Budi Santoso"
+          required
+        >
+        <div class="field-error" data-error-for="full_name" role="alert" hidden></div>
+      </div>
+
+      <div class="form-group">
+        <label for="reg-email" class="form-label">Alamat Email</label>
+        <input
+          type="email"
+          id="reg-email"
+          name="email"
+          class="form-control"
+          autocomplete="email"
+          placeholder="budi@email.com"
+          required
+        >
+        <div class="field-error" data-error-for="email" role="alert" hidden></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="reg-password1" class="form-label">Kata Sandi</label>
+          <input
+            type="password"
+            id="reg-password1"
+            name="password1"
+            class="form-control"
+            autocomplete="new-password"
+            placeholder="Minimal 8 karakter"
+            required
+          >
+          <div class="field-error" data-error-for="password1" role="alert" hidden></div>
+        </div>
+
+        <div class="form-group">
+          <label for="reg-password2" class="form-label">Ulangi Kata Sandi</label>
+          <input
+            type="password"
+            id="reg-password2"
+            name="password2"
+            class="form-control"
+            autocomplete="new-password"
+            placeholder="Ketik ulang kata sandi"
+            required
+          >
+          <div class="field-error" data-error-for="password2" role="alert" hidden></div>
+        </div>
+      </div>
+
+      <button type="submit" id="register-submit-btn" class="btn btn-primary btn-block">
+        Daftarkan Akun Saya
+      </button>
+    </form>
+  </section>
+</div>
+
+<!-- Authenticated View: Profile, Password, & Address Book -->
+<div id="member-workspace" class="split-workspace" hidden>
+  <div style="display: flex; flex-direction: column; gap: var(--space-5); min-width: 0;">
+    <section id="alamat" class="panel" aria-labelledby="address-book-heading">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4);">
+        <div>
+          <h2 id="address-book-heading" style="margin-bottom: 4px;">Buku Alamat Pengiriman</h2>
+          <p class="text-muted" style="margin-bottom: 0;">Tentukan alamat utama untuk mempercepat proses checkout.</p>
+        </div>
+        <button type="button" id="address-new-toggle-btn" class="btn btn-primary btn-sm">
+          Tambah Alamat Baru
+        </button>
+      </div>
+
+      <form id="address-form" class="panel-subtle" style="margin-bottom: var(--space-4);" novalidate hidden>
+        <h3 id="address-form-title">Tambah Alamat Pengiriman Baru</h3>
+        <input type="hidden" id="address-edit-id" name="address_id" value="">
+        <div class="field-error" data-form-alert role="alert" style="margin-bottom: var(--space-3);" hidden></div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="addr-label" class="form-label">Label Alamat</label>
+            <input
+              type="text"
+              id="addr-label"
+              name="label"
+              class="form-control"
+              placeholder="Contoh: Rumah, Kantor, Kos"
+              required
+            >
+            <div class="field-error" data-error-for="label" role="alert" hidden></div>
+          </div>
+
+          <div class="form-group">
+            <label for="addr-recipient" class="form-label">Nama Penerima</label>
+            <input
+              type="text"
+              id="addr-recipient"
+              name="recipient_name"
+              class="form-control"
+              placeholder="Nama lengkap penerima paket"
+              required
+            >
+            <div class="field-error" data-error-for="recipient_name" role="alert" hidden></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="addr-phone" class="form-label">Nomor Telepon Penerima</label>
+            <input
+              type="tel"
+              id="addr-phone"
+              name="recipient_phone"
+              class="form-control mono-num"
+              placeholder="Contoh: 081234567890"
+              required
+            >
+            <span class="form-hint">8 sampai 15 digit angka, boleh diawali tanda +</span>
+            <div class="field-error" data-error-for="recipient_phone" role="alert" hidden></div>
+          </div>
+
+          <div class="form-group">
+            <label for="addr-postal" class="form-label">Kode Pos (5 Digit)</label>
+            <input
+              type="text"
+              id="addr-postal"
+              name="postal_code"
+              class="form-control mono-num"
+              maxlength="5"
+              placeholder="Contoh: 40115"
+              required
+            >
+            <div class="field-error" data-error-for="postal_code" role="alert" hidden></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="addr-street" class="form-label">Alamat Jalan & Nomor Bangunan</label>
+          <textarea
+            id="addr-street"
+            name="street_address"
+            class="form-control"
+            placeholder="Nama jalan, nomor rumah, RT/RW, atau patokan lokasi"
+            required
+          ></textarea>
+          <div class="field-error" data-error-for="street_address" role="alert" hidden></div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="addr-subdistrict" class="form-label">Kecamatan / Kelurahan</label>
+            <input
+              type="text"
+              id="addr-subdistrict"
+              name="subdistrict"
+              class="form-control"
+              placeholder="Contoh: Coblong"
+              required
+            >
+            <div class="field-error" data-error-for="subdistrict" role="alert" hidden></div>
+          </div>
+
+          <div class="form-group">
+            <label for="addr-city" class="form-label">Kota / Kabupaten</label>
+            <input
+              type="text"
+              id="addr-city"
+              name="city"
+              class="form-control"
+              placeholder="Contoh: Kota Bandung"
+              required
+            >
+            <div class="field-error" data-error-for="city" role="alert" hidden></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="addr-province" class="form-label">Provinsi</label>
+          <input
+            type="text"
+            id="addr-province"
+            name="province"
+            class="form-control"
+            placeholder="Contoh: Jawa Barat"
+            required
+          >
+          <div class="field-error" data-error-for="province" role="alert" hidden></div>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: var(--space-2);">
+          <button type="submit" id="address-save-btn" class="btn btn-primary">
+            Simpan Alamat Pengiriman
+          </button>
+          <button type="button" id="address-cancel-btn" class="btn btn-secondary">
+            Batal
+          </button>
+        </div>
+      </form>
+
+      <div id="addresses-loading" class="text-muted" aria-busy="true">Memuat daftar alamat...</div>
+
+      <div id="addresses-error" class="state-box state-error" role="alert" hidden>
+        <p id="addresses-error-msg">Gagal memuat buku alamat.</p>
+        <button type="button" id="addresses-retry-btn" class="btn btn-secondary btn-sm">Muat Ulang Alamat</button>
+      </div>
+
+      <div id="addresses-empty" class="panel-subtle" hidden>
+        <p style="margin-bottom: var(--space-2);"><strong>Belum ada alamat tersimpan.</strong></p>
+        <p class="text-muted" style="margin-bottom: var(--space-3);">Tambahkan minimal satu alamat pengiriman agar Anda dapat melakukan checkout pesanan.</p>
+        <button type="button" id="addresses-empty-add-btn" class="btn btn-primary btn-sm">Tambah Alamat Pertama</button>
+      </div>
+
+      <div id="addresses-list" class="record-list" hidden></div>
+    </section>
+  </div>
+
+  <aside style="display: flex; flex-direction: column; gap: var(--space-5); min-width: 0;">
+    <section class="panel" aria-labelledby="profile-heading">
+      <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+        <span id="profile-avatar" class="avatar-initials" style="width: 44px; height: 44px; font-size: 1rem;">AK</span>
+        <div>
+          <h2 id="profile-heading" style="margin-bottom: 2px;">Data Profil</h2>
+          <span id="profile-email-display" class="text-muted mono-num"></span>
+        </div>
+      </div>
+
+      <form id="profile-form" novalidate>
+        <div class="field-error" data-form-alert role="alert" style="margin-bottom: var(--space-3);" hidden></div>
+
+        <div class="form-group">
+          <label for="profile-full-name" class="form-label">Nama Lengkap</label>
+          <input
+            type="text"
+            id="profile-full-name"
+            name="full_name"
+            class="form-control"
+            required
+          >
+          <div class="field-error" data-error-for="full_name" role="alert" hidden></div>
+        </div>
+
+        <div class="form-group">
+          <label for="profile-phone" class="form-label">Nomor Telepon</label>
+          <input
+            type="tel"
+            id="profile-phone"
+            name="phone"
+            class="form-control mono-num"
+            placeholder="0812xxxxxxx"
+          >
+          <div class="field-error" data-error-for="phone" role="alert" hidden></div>
+        </div>
+
+        <div class="form-group">
+          <label for="profile-dob" class="form-label">Tanggal Lahir</label>
+          <input
+            type="date"
+            id="profile-dob"
+            name="date_of_birth"
+            class="form-control mono-num"
+          >
+          <div class="field-error" data-error-for="date_of_birth" role="alert" hidden></div>
+        </div>
+
+        <button type="submit" id="profile-submit-btn" class="btn btn-primary btn-block">
+          Simpan Perubahan Profil
+        </button>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="password-heading">
+      <h2 id="password-heading">Ubah Kata Sandi</h2>
+      <form id="password-form" novalidate>
+        <div class="field-error" data-form-alert role="alert" style="margin-bottom: var(--space-3);" hidden></div>
+
+        <div class="form-group">
+          <label for="pwd-old" class="form-label">Kata Sandi Saat Ini</label>
+          <input
+            type="password"
+            id="pwd-old"
+            name="old_password"
+            class="form-control"
+            autocomplete="current-password"
+            required
+          >
+          <div class="field-error" data-error-for="old_password" role="alert" hidden></div>
+        </div>
+
+        <div class="form-group">
+          <label for="pwd-new1" class="form-label">Kata Sandi Baru</label>
+          <input
+            type="password"
+            id="pwd-new1"
+            name="new_password1"
+            class="form-control"
+            autocomplete="new-password"
+            required
+          >
+          <div class="field-error" data-error-for="new_password1" role="alert" hidden></div>
+        </div>
+
+        <div class="form-group">
+          <label for="pwd-new2" class="form-label">Konfirmasi Kata Sandi Baru</label>
+          <input
+            type="password"
+            id="pwd-new2"
+            name="new_password2"
+            class="form-control"
+            autocomplete="new-password"
+            required
+          >
+          <div class="field-error" data-error-for="new_password2" role="alert" hidden></div>
+        </div>
+
+        <button type="submit" id="password-submit-btn" class="btn btn-secondary btn-block">
+          Perbarui Kata Sandi
+        </button>
+      </form>
+    </section>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/account.js' %}"></script>
+{% endblock %}
+

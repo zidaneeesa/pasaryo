@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Katalog Produk Terkurasi | Pasaryo{% endblock %}
+
+{% block content %}
+<section class="page-lead" aria-labelledby="catalog-heading">
+  <div>
+    <h1 id="catalog-heading">Katalog Produk Pilihan</h1>
+    <p>Telusuri produk berdasarkan kategori, brand, asal pengiriman, dan rentang harga secara transparan.</p>
+  </div>
+  <div>
+    <a href="/keranjang/" class="btn btn-secondary">Lihat Keranjang Belanja</a>
+  </div>
+</section>
+
+<div class="catalog-workspace">
+  <aside class="panel filter-rail" aria-labelledby="filter-heading">
+    <h2 id="filter-heading">Saring Katalog</h2>
+    <form id="catalog-filter-form" novalidate>
+      <div class="field-error" data-form-alert role="alert" hidden></div>
+
+      <div class="form-group">
+        <label for="filter-q" class="form-label">Cari Nama Produk</label>
+        <input
+          type="search"
+          id="filter-q"
+          name="q"
+          class="form-control"
+          placeholder="Contoh: Kopi, Tas, Sepatu"
+          maxlength="200"
+        >
+        <div class="field-error" data-error-for="q" role="alert" hidden></div>
+      </div>
+
+      <div class="form-group">
+        <label for="filter-category" class="form-label">Kategori</label>
+        <select id="filter-category" name="category_id" class="form-control">
+          <option value="">Semua Kategori</option>
+        </select>
+        <div class="field-error" data-error-for="category_id" role="alert" hidden></div>
+      </div>
+
+      <div class="form-group">
+        <label for="filter-brand" class="form-label">Brand</label>
+        <select id="filter-brand" name="brand_id" class="form-control">
+          <option value="">Semua Brand</option>
+        </select>
+        <div class="field-error" data-error-for="brand_id" role="alert" hidden></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="filter-min-price" class="form-label">Harga Min (Rp)</label>
+          <input
+            type="number"
+            id="filter-min-price"
+            name="min_price"
+            class="form-control mono-num"
+            min="0"
+            step="1000"
+            placeholder="0"
+          >
+          <div class="field-error" data-error-for="min_price" role="alert" hidden></div>
+        </div>
+
+        <div class="form-group">
+          <label for="filter-max-price" class="form-label">Harga Maks (Rp)</label>
+          <input
+            type="number"
+            id="filter-max-price"
+            name="max_price"
+            class="form-control mono-num"
+            min="0"
+            step="1000"
+            placeholder="5000000"
+          >
+          <div class="field-error" data-error-for="max_price" role="alert" hidden></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="filter-origin" class="form-label">Kota Asal Pengiriman</label>
+        <input
+          type="text"
+          id="filter-origin"
+          name="origin_city"
+          class="form-control"
+          placeholder="Contoh: Bandung, Jakarta"
+          maxlength="100"
+        >
+        <div class="field-error" data-error-for="origin_city" role="alert" hidden></div>
+      </div>
+
+      <div class="form-group">
+        <label for="filter-sort" class="form-label">Urutkan Produk</label>
+        <select id="filter-sort" name="sort" class="form-control">
+          <option value="-id">Terbaru</option>
+          <option value="price">Harga Termurah</option>
+          <option value="-price">Harga Termahal</option>
+          <option value="name">Nama A sampai Z</option>
+        </select>
+        <div class="field-error" data-error-for="sort" role="alert" hidden></div>
+      </div>
+
+      <div class="filter-actions">
+        <button type="submit" id="filter-submit-btn" class="btn btn-primary btn-block">Terapkan Filter</button>
+        <button type="button" id="filter-reset-btn" class="btn btn-secondary btn-block">Reset Filter</button>
+      </div>
+    </form>
+  </aside>
+
+  <section aria-labelledby="results-heading" style="min-width: 0;">
+    <div class="catalog-toolbar">
+      <h2 id="results-heading" style="margin: 0; font-size: 1.05rem;">Daftar Produk</h2>
+      <span id="catalog-count-label" class="text-muted mono-num">Memuat data produk...</span>
+    </div>
+
+    <div id="catalog-loading" class="skeleton-grid" aria-busy="true" aria-label="Sedang memuat daftar produk">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
+
+    <div id="catalog-error" class="state-box state-error" role="alert" hidden>
+      <h3>Gagal Memuat Katalog</h3>
+      <p id="catalog-error-msg">Terjadi kendala saat mengambil daftar produk dari server.</p>
+      <button type="button" id="catalog-retry-btn" class="btn btn-secondary">Muat Ulang Katalog</button>
+    </div>
+
+    <div id="catalog-empty" class="state-box" hidden>
+      <h3>Tidak Ada Produk yang Cocok</h3>
+      <p>Belum ada produk yang sesuai dengan kombinasi pencarian atau filter harga yang Anda pilih.</p>
+      <button type="button" id="catalog-empty-reset-btn" class="btn btn-primary">Tampilkan Semua Produk</button>
+    </div>
+
+    <div id="catalog-grid" class="product-grid" hidden></div>
+
+    <nav id="catalog-pagination" class="pagination-bar" aria-label="Navigasi halaman katalog" hidden>
+      <span id="pagination-info" class="text-muted mono-num">Halaman 1 dari 1</span>
+      <div class="pagination-controls">
+        <button type="button" id="page-prev-btn" class="btn btn-secondary btn-sm">Sebelumnya</button>
+        <button type="button" id="page-next-btn" class="btn btn-secondary btn-sm">Berikutnya</button>
+      </div>
+    </nav>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/catalog.js' %}"></script>
+{% endblock %}
+

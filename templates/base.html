@@ -1,0 +1,95 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Pasaryo: Katalog & Belanja Terkurasi{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/pasaryo.css' %}?v=2">
+</head>
+<body data-authenticated="{{ request.user.is_authenticated|yesno:'true,false' }}" data-user-name="{{ request.user.full_name|default:'' }}">
+  <a href="#main-content" class="skip-link">Langsung ke konten utama</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="brand-wordmark">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span>Pasaryo</span>
+        <span class="brand-tagline">Belanja Kurasi Harian</span>
+      </a>
+
+      <button
+        type="button"
+        class="mobile-menu-btn"
+        id="mobile-menu-toggle"
+        aria-expanded="false"
+        aria-controls="primary-navigation"
+      >
+        Menu Navigasi
+      </button>
+
+      <nav id="primary-navigation" class="primary-nav" aria-label="Navigasi utama">
+        <a href="/" class="nav-link" {% if active_nav == 'catalog' %}aria-current="page"{% endif %}>
+          <span>Katalog Produk</span>
+        </a>
+        <a href="/wishlist-saya/" class="nav-link" {% if active_nav == 'wishlist' %}aria-current="page"{% endif %}>
+          <span>Wishlist</span>
+        </a>
+        <a href="/keranjang/" class="nav-link" {% if active_nav == 'cart' %}aria-current="page"{% endif %}>
+          <span>Keranjang</span>
+          <span id="nav-cart-count" class="nav-badge" aria-label="Jumlah barang di keranjang">0</span>
+        </a>
+        <a href="/pesanan/" class="nav-link" {% if active_nav == 'orders' %}aria-current="page"{% endif %}>
+          <span>Pesanan Saya</span>
+        </a>
+        <a href="/akun/" class="nav-link user-pill" {% if active_nav == 'account' %}aria-current="page"{% endif %}>
+          <span id="nav-user-initials" class="avatar-initials" aria-hidden="true">
+            {% if request.user.is_authenticated %}{{ request.user.full_name|slice:":2"|upper }}{% else %}AK{% endif %}
+          </span>
+          <span id="nav-user-label">
+            {% if request.user.is_authenticated %}{{ request.user.full_name }}{% else %}Masuk / Daftar{% endif %}
+          </span>
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" tabindex="-1" class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <strong>Pasaryo</strong>
+        <p class="text-muted" style="margin-bottom: 0;">Platform belanja produk pilihan dengan pelacakan pesanan dan pembayaran terintegrasi.</p>
+      </div>
+      <nav class="footer-links" aria-label="Tautan kaki halaman">
+        <a href="/">Katalog Produk</a>
+        <a href="/wishlist-saya/">Wishlist Saya</a>
+        <a href="/keranjang/">Keranjang Belanja</a>
+        <a href="/pesanan/">Riwayat Pesanan</a>
+        <a href="/akun/">Pengaturan Akun & Alamat</a>
+      </nav>
+    </div>
+  </footer>
+
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <dialog id="confirm-dialog" class="confirm-dialog" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-desc">
+    <h2 id="confirm-dialog-title">Konfirmasi Tindakan</h2>
+    <p id="confirm-dialog-desc" class="text-secondary">Apakah Anda yakin ingin melanjutkan tindakan ini?</p>
+    <div class="dialog-actions">
+      <button type="button" id="confirm-dialog-cancel" class="btn btn-secondary">Batal</button>
+      <button type="button" id="confirm-dialog-ok" class="btn btn-danger">Ya, Lanjutkan</button>
+    </div>
+  </dialog>
+
+  <script src="{% static 'js/pasaryo-core.js' %}?v=2"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
+

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Riwayat Pesanan Saya | Pasaryo{% endblock %}
+
+{% block content %}
+<section class="page-lead" aria-labelledby="orders-heading">
+  <div>
+    <h1 id="orders-heading">Riwayat Pesanan Saya</h1>
+    <p>Pantau status pembayaran, pelacakan kurir, konfirmasi penerimaan barang, dan berikan ulasan produk.</p>
+  </div>
+  <div>
+    <a href="/" class="btn btn-secondary">Belanja Produk Lainnya</a>
+  </div>
+</section>
+
+<div id="orders-loading" class="state-box" aria-busy="true">
+  <h2>Memuat Riwayat Pesanan</h2>
+  <p>Mengambil daftar transaksi dan status pengiriman Anda...</p>
+</div>
+
+<div id="orders-auth-required" class="state-box" hidden>
+  <h2>Masuk untuk Melihat Pesanan</h2>
+  <p>Riwayat transaksi dan pelacakan pengiriman hanya dapat diakses oleh pemilik akun.</p>
+  <a href="/akun/" class="btn btn-primary">Masuk atau Daftar Akun</a>
+</div>
+
+<div id="orders-error" class="state-box state-error" role="alert" hidden>
+  <h2>Gagal Memuat Riwayat Pesanan</h2>
+  <p id="orders-error-msg">Terjadi gangguan saat mengambil daftar pesanan Anda.</p>
+  <button type="button" id="orders-retry-btn" class="btn btn-secondary">Muat Ulang Pesanan</button>
+</div>
+
+<div id="orders-empty" class="state-box" hidden>
+  <h2>Belum Ada Riwayat Pesanan</h2>
+  <p>Anda belum pernah membuat pesanan. Tambahkan produk ke keranjang untuk memulai transaksi pertama Anda.</p>
+  <a href="/" class="btn btn-primary">Mulai Belanja di Katalog</a>
+</div>
+
+<div id="orders-toolbar" class="catalog-toolbar" hidden>
+  <span id="orders-count-label" class="mono-num">0 pesanan</span>
+</div>
+
+<div id="orders-list" class="record-list" hidden></div>
+
+<nav id="orders-pagination" class="pagination-bar" aria-label="Navigasi halaman pesanan" hidden>
+  <span id="orders-page-info" class="text-muted mono-num">Halaman 1 dari 1</span>
+  <div class="pagination-controls">
+    <button type="button" id="orders-prev-btn" class="btn btn-secondary btn-sm">Sebelumnya</button>
+    <button type="button" id="orders-next-btn" class="btn btn-secondary btn-sm">Berikutnya</button>
+  </div>
+</nav>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/orders.js' %}?v=2"></script>
+{% endblock %}
+

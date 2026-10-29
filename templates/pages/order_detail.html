@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Rincian & Pelacakan Pesanan | Pasaryo{% endblock %}
+
+{% block content %}
+<div id="order-detail-root" data-order-id="{{ order_id }}">
+  <div style="margin-bottom: var(--space-4);">
+    <a href="/pesanan/" class="btn btn-subtle btn-sm">Kembali ke Riwayat Pesanan</a>
+  </div>
+
+  <div id="order-detail-loading" class="state-box" aria-busy="true">
+    <h2>Memuat Rincian Pesanan</h2>
+    <p>Mengambil status pembayaran, barang pesanan, dan lini masa pengiriman...</p>
+  </div>
+
+  <div id="order-detail-auth" class="state-box" hidden>
+    <h2>Masuk untuk Melihat Rincian Pesanan</h2>
+    <p>Rincian transaksi hanya dapat dilihat oleh pemilik akun.</p>
+    <a href="/akun/" class="btn btn-primary">Masuk ke Akun</a>
+  </div>
+
+  <div id="order-detail-error" class="state-box state-error" role="alert" hidden>
+    <h2>Pesanan Tidak Dapat Dimuat</h2>
+    <p id="order-detail-error-msg">Pesanan tidak ditemukan atau terjadi gangguan jaringan.</p>
+    <div style="display: flex; justify-content: center; gap: var(--space-3); flex-wrap: wrap;">
+      <button type="button" id="order-detail-retry-btn" class="btn btn-secondary">Muat Ulang Rincian</button>
+      <a href="/pesanan/" class="btn btn-primary">Kembali ke Riwayat</a>
+    </div>
+  </div>
+
+  <div id="order-detail-content" hidden>
+    <section class="page-lead" aria-labelledby="order-number-heading">
+      <div>
+        <div style="display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2);">
+          <span id="order-status-badge" class="badge badge-neutral">Status</span>
+          <span id="order-created-text" class="text-muted mono-num"></span>
+        </div>
+        <h1 id="order-number-heading" class="mono-num">ORD-000</h1>
+      </div>
+
+      <div id="order-header-actions" style="display: flex; flex-wrap: wrap; gap: var(--space-3);">
+        <button type="button" id="order-complete-btn" class="btn btn-primary" hidden>
+          Konfirmasi Pesanan Diterima
+        </button>
+        <button type="button" id="order-cancel-btn" class="btn btn-danger" hidden>
+          Batalkan Pesanan
+        </button>
+      </div>
+    </section>
+
+    <div class="split-workspace">
+      <div style="display: flex; flex-direction: column; gap: var(--space-5); min-width: 0;">
+        <section class="panel" aria-labelledby="order-items-heading">
+          <h2 id="order-items-heading">Barang dalam Pesanan</h2>
+          <p id="order-review-hint" class="text-muted" hidden>
+            Pesanan ini telah selesai. Anda dapat memberikan rating dan ulasan untuk setiap barang di bawah ini.
+          </p>
+          <div id="order-items-box" class="record-list"></div>
+        </section>
+
+        <section class="panel" aria-labelledby="tracking-heading">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4);">
+            <h2 id="tracking-heading" style="margin-bottom: 0;">Pelacakan Pengiriman</h2>
+            <button type="button" id="refresh-tracking-btn" class="btn btn-secondary btn-sm">
+              Perbarui Status Pelacakan
+            </button>
+          </div>
+
+          <div id="shipping-snapshot-box" class="panel-subtle" style="margin-bottom: var(--space-4);"></div>
+
+          <div id="tracking-empty" class="text-muted" hidden>
+            Belum ada catatan pergerakan paket untuk pesanan ini.
+          </div>
+          <ol id="tracking-timeline" class="timeline"></ol>
+        </section>
+      </div>
+
+      <aside class="panel summary-rail" aria-labelledby="payment-summary-heading">
+        <h2 id="payment-summary-heading">Ringkasan Tagihan & Pembayaran</h2>
+
+        <div id="payment-info-box" class="panel-subtle" style="margin-bottom: var(--space-4);"></div>
+
+        <form id="repayment-form" style="margin-bottom: var(--space-4);" novalidate hidden>
+          <div class="field-error" data-form-alert role="alert" style="margin-bottom: var(--space-2);" hidden></div>
+          <div class="form-group">
+            <label for="repayment-method-select" class="form-label">Pilih Metode Pembayaran</label>
+            <select id="repayment-method-select" name="payment_method_id" class="form-control"></select>
+            <div class="field-error" data-error-for="payment_method_id" role="alert" hidden></div>
+          </div>
+          <button type="submit" id="repayment-submit-btn" class="btn btn-primary btn-block">
+            Buat Tagihan Pembayaran
+          </button>
+        </form>
+
+        <div class="summary-rows">
+          <div class="summary-line">
+            <span class="text-secondary">Kurir Pengiriman</span>
+            <span id="order-summary-courier" style="font-weight: 600;">-</span>
+          </div>
+          <div class="summary-line">
+            <span class="text-secondary">Subtotal Barang</span>
+            <span id="order-summary-subtotal" class="mono-num">Rp 0</span>
+          </div>
+          <div class="summary-line">
+            <span class="text-secondary">Biaya Pengiriman</span>
+            <span id="order-summary-shipping" class="mono-num">Rp 0</span>
+          </div>
+          <div class="summary-line">
+            <span class="text-secondary">Biaya Layanan</span>
+            <span id="order-summary-service" class="mono-num">Rp 0</span>
+          </div>
+          <div id="order-summary-discount-row" class="summary-line" style="color: var(--status-success-fg); font-weight: 700;" hidden>
+            <span>Potongan Diskon</span>
+            <span id="order-summary-discount" class="mono-num">-Rp 0</span>
+          </div>
+          <div class="summary-total">
+            <span>Total Tagihan</span>
+            <span id="order-summary-total" class="mono-num">Rp 0</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/order-detail.js' %}?v=2"></script>
+{% endblock %}
+
