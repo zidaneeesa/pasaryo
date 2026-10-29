@@ -5,11 +5,12 @@ from uuid import UUID, uuid4
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Prefetch
 from django.utils import timezone
 
 from accounts.models import UserAddress
 from catalog.models import Product, ProductVariant
+from promotions.services import get_product_pricing, with_product_promotions
 
 from .models import (
     Cart,
@@ -180,7 +181,7 @@ def create_payment_transaction(*, user, order_id, payment_method_id):
     )
 
     if (
-        order.subtotal <= 0
+        order.subtotal < 0
         or order.shipping_fee < 0
         or order.service_fee < 0
         or order.discount_amount < 0
@@ -297,7 +298,13 @@ def get_cart_items(*, user):
     return (
         Cart.objects
         .filter(user=user)
-        .select_related("product_variant__product")
+        .select_related("product_variant")
+        .prefetch_related(
+            Prefetch(
+                "product_variant__product",
+                queryset=with_product_promotions(Product.objects.all()),
+            )
+        )
         .order_by("id")
     )
 
@@ -407,6 +414,7 @@ def validate_cart_promo_code(*, user, code):
     if not items:
         raise ValidationError("Keranjang masih kosong.")
 
+    pricing_time = timezone.now()
     subtotal = Decimal("0.00")
 
     for item in items:
@@ -419,10 +427,11 @@ def validate_cart_promo_code(*, user, code):
                 "tidak mencukupi."
             )
 
-        if product.price < 0:
+        if not product.price.is_finite() or product.price < 0:
             raise ValidationError("Harga produk tidak valid.")
 
-        subtotal += product.price * item.quantity
+        pricing = get_product_pricing(product, at=pricing_time)
+        subtotal += pricing["final_price"] * item.quantity
 
     promo, discount = validate_promo_code(
         user=user,
@@ -603,7 +612,7 @@ def checkout_cart(
 
     products = {
         product.pk: product
-        for product in (
+        for product in with_product_promotions(
             Product.objects
             .select_for_update()
             .filter(pk__in=product_ids)
@@ -631,6 +640,9 @@ def checkout_cart(
             "Keranjang berubah. Silakan ulangi checkout."
         )
 
+    pricing_time = timezone.now()
+    unit_prices = {}
+    original_subtotal = Decimal("0.00")
     subtotal = Decimal("0.00")
 
     for item in items:
@@ -648,9 +660,20 @@ def checkout_cart(
         if not product.price.is_finite() or product.price < 0:
             raise ValidationError("Harga produk tidak valid.")
 
-        subtotal += product.price * item.quantity
+        if product.pk not in unit_prices:
+            unit_prices[product.pk] = get_product_pricing(
+                product,
+                at=pricing_time,
+            )["final_price"]
 
-    if subtotal <= 0 or subtotal > MAX_SUBTOTAL:
+        original_subtotal += product.price * item.quantity
+        subtotal += unit_prices[product.pk] * item.quantity
+
+    if (
+        original_subtotal <= 0
+        or subtotal < 0
+        or subtotal > MAX_SUBTOTAL
+    ):
         raise ValidationError("Subtotal pesanan tidak valid.")
 
     promo = None
@@ -741,7 +764,7 @@ def checkout_cart(
                 variant_name_snapshot=variant.color_name,
                 sku_snapshot=variant.sku,
                 quantity=item.quantity,
-                price_at_purchase=product.price,
+                price_at_purchase=unit_prices[product.pk],
             )
         )
 
