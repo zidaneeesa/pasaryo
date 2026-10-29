@@ -1,6 +1,8 @@
 from django import forms
 
 
+# Form validasi parameter filter, pencarian, pengurutan (sorting), dan paginasi katalog produk.
+# Menggunakan Form biasa untuk memvalidasi query params URL (GET request) sebelum diproses ke query database.
 class ProductFilterForm(forms.Form):
     q = forms.CharField(required=False, max_length=200)
     category_id = forms.IntegerField(required=False, min_value=1)
@@ -38,6 +40,8 @@ class ProductFilterForm(forms.Form):
         max_value=100,
     )
 
+    # Validasi logika relasi antar-field (rentang harga):
+    # Memastikan harga minimum tidak lebih besar dari harga maksimum agar query filter tidak menghasilkan error/kontradiksi.
     def clean(self):
         data = super().clean()
         minimum = data.get("min_price")

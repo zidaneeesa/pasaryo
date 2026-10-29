@@ -7,11 +7,15 @@ from django.contrib.auth.forms import BaseUserCreationForm
 User = get_user_model()
 
 
+# Form untuk menangani validasi registrasi pengguna baru.
+# Menggunakan BaseUserCreationForm bawaan Django agar password otomatis di-hash dan divalidasi keamanannya.
 class RegisterForm(BaseUserCreationForm):
     class Meta:
         model = User
         fields = ["full_name", "email"]
 
+    # Validasi custom email: normalisasi ke huruf kecil (lowercase) dan hapus spasi,
+    # serta memastikan email belum terdaftar di database secara case-insensitive.
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()
 
@@ -21,13 +25,19 @@ class RegisterForm(BaseUserCreationForm):
         return email
 
 
+# Form autentikasi login pengguna.
+# Menggunakan form biasa (bukan ModelForm) karena hanya untuk memvalidasi kredensial (email & password).
 class LoginForm(forms.Form):
     email = forms.EmailField(max_length=254)
     password = forms.CharField(strip=False)
 
+    # Memastikan email input selalu dalam format lowercase sebelum dicocokkan ke database.
     def clean_email(self):
         return self.cleaned_data["email"].lower()
 
+
+# Form pembaruan data profil pengguna (nama lengkap, nomor telepon, tanggal lahir).
+# Menggunakan ModelForm agar perubahan langsung dapat disimpan ke instance User.
 class ProfileForm(forms.ModelForm):
     date_of_birth = forms.DateField(
         required=False,
@@ -38,6 +48,8 @@ class ProfileForm(forms.ModelForm):
         model = User
         fields = ["full_name", "phone", "date_of_birth"]
 
+    # Validasi logika bisnis tanggal lahir:
+    # Mencegah pengguna memasukkan tanggal lahir di masa depan (tidak valid secara logika).
     def clean_date_of_birth(self):
         date_of_birth = self.cleaned_data.get("date_of_birth")
 
@@ -49,6 +61,8 @@ class ProfileForm(forms.ModelForm):
         return date_of_birth
 
 
+# Form pengelolaan alamat pengiriman pengguna (UserAddress).
+# Dilengkapi validasi Regex untuk format nomor HP dan kode pos Indonesia.
 class UserAddressForm(forms.ModelForm):
     recipient_phone = forms.RegexField(
         regex=r"^\+?[0-9]{8,15}$",
@@ -78,6 +92,8 @@ class UserAddressForm(forms.ModelForm):
             "postal_code",
         ]
 
+    # Validasi menyeluruh (cross-field validation):
+    # Memastikan semua field yang dikirim berformat teks (string) guna mencegah injection tipe data aneh.
     def clean(self):
         data = super().clean()
         for name in self.fields:

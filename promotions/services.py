@@ -11,6 +11,8 @@ ZERO = Decimal("0.00")
 HUNDRED = Decimal("100")
 
 
+# Mengoptimasi query produk dengan prefetching diskon reguler dan diskon event secara efisien.
+# Alasan: Mencegah 'N+1 query problem' saat me-load banyak produk di katalog/keranjang yang membutuhkan kalkulasi promo.
 def with_product_promotions(queryset):
     return queryset.prefetch_related(
         Prefetch(
@@ -25,6 +27,12 @@ def with_product_promotions(queryset):
     )
 
 
+# Menghitung harga diskon terbaik dan harga final (final_price) produk pada waktu tertentu.
+# Logika bisnis:
+# 1. Mengumpulkan semua diskon aktif (diskon reguler dan flash sale/event promo).
+# 2. Memberikan prioritas diskon event di atas diskon reguler.
+# 3. Memilih diskon dengan persentase terbesar ('winner') jika ada beberapa promo bersamaan.
+# 4. Menggunakan tipe data Decimal dan ROUND_HALF_UP untuk presisi finansial mata uang.
 def get_product_pricing(product, *, at=None):
     at = timezone.now() if at is None else at
     price = Decimal(str(product.price)).quantize(CENT)

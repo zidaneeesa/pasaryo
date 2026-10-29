@@ -28,6 +28,9 @@ CENT = Decimal("0.01")
 MAX_SUBTOTAL = Decimal("9999999999.99")
 
 
+# Memvalidasi kelayakan kode promo (voucher) terhadap subtotal belanja user.
+# Mengecek masa aktif, batas minimum belanja, kuota total toko, serta kuota limit per akun pengguna,
+# lalu menghitung nilai potongan (baik persentase dengan batas diskon maks, maupun nominal flat).
 def validate_promo_code(*, user, code, subtotal):
     """
     subtotal harus berupa Decimal hasil perhitungan server.
@@ -133,6 +136,8 @@ def validate_promo_code(*, user, code, subtotal):
 
     return promo, discount
 
+# Membuat transaksi pembayaran baru (Payment) untuk sebuah pesanan dengan status PENDING.
+# Mengunci data pesanan (select_for_update) secara atomik untuk mencegah 'double payment' atau modifikasi konkuren.
 @transaction.atomic
 def create_payment_transaction(*, user, order_id, payment_method_id):
     if (
@@ -214,6 +219,8 @@ def create_payment_transaction(*, user, order_id, payment_method_id):
         expires_at=order.payment_due_at,
     )
 
+# Mengonfirmasi penerimaan barang oleh pembeli dan mengubah status pesanan dari SHIPPED menjadi COMPLETED.
+# Memvalidasi bahwa pembayaran pesanan sah dan sukses, kemudian mencatat riwayat pelacakan DELIVERED.
 @transaction.atomic
 def confirm_order_received(*, user, order_id):
     if (
@@ -273,6 +280,7 @@ def confirm_order_received(*, user, order_id):
 MAX_CART_QUANTITY = 2_147_483_647
 
 
+# Helper validasi user: memastikan user telah login dan akun dalam status aktif sebelum mengakses keranjang.
 def _validate_cart_user(user):
     if (
         not getattr(user, "is_authenticated", False)
@@ -282,6 +290,7 @@ def _validate_cart_user(user):
         raise ValidationError("Silakan login terlebih dahulu.")
 
 
+# Helper validasi kuantitas item: memastikan jumlah barang berupa integer positif (>= 1) dan dalam batas wajar.
 def _validate_cart_quantity(quantity):
     if type(quantity) is not int or quantity < 1:
         raise ValidationError(
@@ -292,6 +301,8 @@ def _validate_cart_quantity(quantity):
         raise ValidationError("Jumlah terlalu besar.")
 
 
+# Mengambil seluruh item dalam keranjang belanja milik user yang sedang aktif.
+# Menggunakan select_related & prefetch_related agar data produk, varian, dan promo ter-load dalam 1 operasi efisien.
 def get_cart_items(*, user):
     _validate_cart_user(user)
 
@@ -309,6 +320,8 @@ def get_cart_items(*, user):
     )
 
 
+# Menambahkan varian produk ke keranjang belanja pengguna secara aman dan atomik.
+# Jika barang sudah ada di keranjang, jumlahnya ditambah (update) setelah memvalidasi batas stok gudang via database lock.
 @transaction.atomic
 def add_cart_item(*, user, product_variant_id, quantity=1):
     _validate_cart_user(user)
@@ -356,6 +369,8 @@ def add_cart_item(*, user, product_variant_id, quantity=1):
     return item, created
 
 
+# Mengubah jumlah (quantity) item spesifik di keranjang secara langsung.
+# Memastikan kuantitas baru tidak melebihi sisa stok produk yang tersedia di database.
 @transaction.atomic
 def set_cart_item_quantity(*, user, cart_item_id, quantity):
     _validate_cart_user(user)
@@ -397,6 +412,7 @@ def set_cart_item_quantity(*, user, cart_item_id, quantity):
     return item
 
 
+# Menghapus item tertentu dari keranjang belanja user.
 def remove_cart_item(*, user, cart_item_id):
     _validate_cart_user(user)
 
@@ -408,6 +424,8 @@ def remove_cart_item(*, user, cart_item_id):
     if deleted == 0:
         raise ValidationError("Item keranjang tidak ditemukan.")
 
+# Menghitung subtotal keranjang secara real-time berdasarkan harga promo aktif saat ini,
+# lalu mengecek kelayakan penggunaan kode promo pada keranjang belanja tersebut.
 def validate_cart_promo_code(*, user, code):
     items = list(get_cart_items(user=user))
 
@@ -444,6 +462,7 @@ def validate_cart_promo_code(*, user, code):
 CHECKOUT_PAYMENT_WINDOW = timedelta(hours=24)
 
 
+# Helper sanitasi data checkout: memvalidasi format UUID kunci idempoten (checkout_key) dan ID numerik.
 def _checkout_request_data(
     *,
     checkout_key,
@@ -483,6 +502,8 @@ def _checkout_request_data(
     return key, data
 
 
+# Mengonversi alamat pengguna menjadi string statis (snapshot) permanen untuk disimpan pada pesanan.
+# Alasan: Jika user di kemudian hari mengedit atau menghapus alamatnya, catatan riwayat pesanan masa lalu tidak rusak.
 def _checkout_address_snapshot(address):
     fields = (
         "label",
@@ -510,6 +531,11 @@ def _checkout_address_snapshot(address):
     )
 
 
+# Service utama transaksi checkout: memproses keranjang belanja menjadi sebuah Pesanan (Order).
+# Berjalan dalam @transaction.atomic dengan database locking (select_for_update) untuk:
+# 1. Menjaga idempotensi via checkout_key agar tidak terjadi order ganda saat user klik checkout berkali-kali.
+# 2. Mengunci & memotong stok produk secara atomik guna mencegah 'overselling' (kebocoran stok).
+# 3. Membuat snapshot detail produk (OrderItem) dan menghapus item dari keranjang user.
 @transaction.atomic
 def checkout_cart(
     *,
@@ -814,6 +840,8 @@ def checkout_cart(
 MAX_PRODUCT_STOCK = 2_147_483_647
 
 
+# Mengembalikan stok varian produk ke katalog ketika pesanan dibatalkan atau kedaluwarsa.
+# Menjaga integritas data stok inventaris toko agar kembali tersedia bagi pembeli lain.
 def _restore_order_stock(order):
     """
     Dipanggil dalam transaksi setelah Order dikunci.
@@ -877,6 +905,8 @@ def _restore_order_stock(order):
     order.stock_deducted = False
 
 
+# Membatalkan pesanan yang belum dibayar (status TO_PAY) atas permintaan user.
+# Mengembalikan stok barang, membatalkan transaksi pembayaran pending, dan mencatat riwayat pelacakan CANCELLED.
 @transaction.atomic
 def cancel_order(*, user, order_id):
     _validate_cart_user(user)
@@ -938,6 +968,8 @@ def cancel_order(*, user, order_id):
 
     return order
 
+# Membatalkan pesanan secara otomatis jika batas waktu pembayaran (payment_due_at) telah lewat.
+# Mengembalikan stok produk dan menandai status pembayaran sebagai EXPIRED.
 @transaction.atomic
 def expire_unpaid_order(*, order_id):
     if type(order_id) is not int or not 1 <= order_id <= (2**63 - 1):
