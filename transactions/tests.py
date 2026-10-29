@@ -40,6 +40,7 @@ from .services import (
 
 from accounts.models import UserAddress
 from catalog.models import Brand, Category, Product, ProductVariant
+from promotions.models import Discount, Event, EventProduct
 from unittest.mock import patch
 
 
@@ -4958,3 +4959,192 @@ class TransactionIntegrationTests(TestCase):
             1,
         )
         self.assertEqual(Order.objects.count(), 0)
+
+
+class ProductPromotionTransactionTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            email="discounted-buyer@example.com",
+            full_name="Pembeli Diskon",
+        )
+        self.address = UserAddress.objects.create(
+            user=self.user,
+            label="Rumah",
+            recipient_name="Pembeli Diskon",
+            recipient_phone="081234567890",
+            street_address="Jalan Diskon No. 10",
+            subdistrict="Sumbersari",
+            city="Jember",
+            province="Jawa Timur",
+            postal_code="68121",
+        )
+        category = Category.objects.create(name="Kategori Diskon")
+        brand = Brand.objects.create(name="Brand Diskon")
+        self.product = Product.objects.create(
+            category=category,
+            brand=brand,
+            name="Produk Diskon Admin",
+            price=Decimal("100000.00"),
+        )
+        self.variant = ProductVariant.objects.create(
+            product=self.product,
+            color_name="Hitam",
+            stock=10,
+            sku="DISC-ADMIN-001",
+        )
+        self.shipping = ShippingMethod.objects.create(
+            name="Reguler",
+            estimated_days="2-4 hari",
+            base_cost=Decimal("15000.00"),
+        )
+        self.payment_method = PaymentMethod.objects.create(
+            name="Virtual Account",
+            channel_provider="Bank Uji",
+            service_fee=Decimal("2500.00"),
+        )
+        self.promo = PromoCode.objects.create(
+            code="EKSTRA10",
+            discount_type=DiscountType.PERCENTAGE,
+            discount_value=Decimal("10.00"),
+            max_discount=Decimal("50000.00"),
+            min_order_amount=Decimal("150000.00"),
+            quota_total=100,
+            quota_per_user=2,
+            expires_at=timezone.now() + timedelta(days=7),
+        )
+        Cart.objects.create(
+            user=self.user,
+            product_variant=self.variant,
+            quantity=2,
+        )
+
+    def test_active_product_discount_applies_to_cart_promo_and_checkout(self):
+        now = timezone.now()
+        discount = Discount.objects.create(
+            product=self.product,
+            start_date=now - timedelta(hours=2),
+            end_date=now + timedelta(hours=2),
+            discount_value=Decimal("20.00"),
+        )
+
+        self.client.force_login(self.user)
+
+        cart_res = self.client.get("/api/cart/")
+        self.assertEqual(cart_res.status_code, 200)
+        cart_data = cart_res.json()["data"]
+        self.assertEqual(cart_data["subtotal"], "160000.00")
+        self.assertEqual(cart_data["items"][0]["original_unit_price"], "100000.00")
+        self.assertEqual(cart_data["items"][0]["discount_percentage"], "20.00")
+        self.assertEqual(cart_data["items"][0]["discount_amount"], "20000.00")
+        self.assertEqual(cart_data["items"][0]["unit_price"], "80000.00")
+        self.assertEqual(cart_data["items"][0]["line_total"], "160000.00")
+        self.assertEqual(
+            cart_data["items"][0]["promotion"],
+            {"source": "discount", "id": discount.pk},
+        )
+
+        promo_res = self.client.post(
+            "/api/promo-codes/validate/",
+            data={"code": self.promo.code},
+            content_type="application/json",
+        )
+        self.assertEqual(promo_res.status_code, 200)
+        promo_data = promo_res.json()["data"]
+        self.assertEqual(promo_data["subtotal"], "160000.00")
+        self.assertEqual(promo_data["discount_amount"], "16000.00")
+        self.assertEqual(promo_data["subtotal_after_discount"], "144000.00")
+
+        checkout_res = self.client.post(
+            "/api/checkout/",
+            data={
+                "checkout_key": str(uuid4()),
+                "address_id": self.address.pk,
+                "shipping_method_id": self.shipping.pk,
+                "payment_method_id": self.payment_method.pk,
+                "promo_code": self.promo.code,
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(checkout_res.status_code, 201)
+        order_data = checkout_res.json()["data"]
+
+        order = Order.objects.get(pk=order_data["id"])
+        self.assertEqual(order.subtotal, Decimal("160000.00"))
+        self.assertEqual(order.discount_amount, Decimal("16000.00"))
+        self.assertEqual(order.total_amount, Decimal("161500.00"))
+
+        order_item = order.items.get()
+        self.assertEqual(order_item.price_at_purchase, Decimal("80000.00"))
+        self.assertEqual(order_item.line_total, Decimal("160000.00"))
+
+        payment = order.payments.get()
+        self.assertEqual(payment.payment_amount, Decimal("161500.00"))
+
+    def test_event_discount_takes_priority_and_enforces_promo_min_order(self):
+        now = timezone.now()
+        Discount.objects.create(
+            product=self.product,
+            start_date=now - timedelta(hours=2),
+            end_date=now + timedelta(hours=2),
+            discount_value=Decimal("20.00"),
+        )
+        event = Event.objects.create(
+            name="Flash Sale",
+            start_date=now - timedelta(hours=1),
+            end_date=now + timedelta(hours=1),
+            discount_value=Decimal("30.00"),
+        )
+        EventProduct.objects.create(
+            event=event,
+            product=self.product,
+            discount_type="percentage",
+            discount_value=Decimal("40.00"),
+        )
+
+        self.client.force_login(self.user)
+
+        promo_res = self.client.post(
+            "/api/promo-codes/validate/",
+            data={"code": self.promo.code},
+            content_type="application/json",
+        )
+        self.assertEqual(promo_res.status_code, 400)
+        self.assertIn("minimum belanja", promo_res.json()["message"])
+
+        order, created = checkout_cart(
+            user=self.user,
+            checkout_key=uuid4(),
+            address_id=self.address.pk,
+            shipping_method_id=self.shipping.pk,
+            payment_method_id=self.payment_method.pk,
+            promo_code=None,
+        )
+        self.assertTrue(created)
+        self.assertEqual(order.subtotal, Decimal("120000.00"))
+        self.assertEqual(order.total_amount, Decimal("137500.00"))
+        self.assertEqual(order.items.get().price_at_purchase, Decimal("60000.00"))
+        self.assertEqual(order.payments.get().payment_amount, Decimal("137500.00"))
+
+    def test_hundred_percent_product_discount_charges_only_shipping_and_service_fee(self):
+        now = timezone.now()
+        Discount.objects.create(
+            product=self.product,
+            start_date=now - timedelta(hours=1),
+            end_date=now + timedelta(hours=1),
+            discount_value=Decimal("100.00"),
+        )
+
+        order, created = checkout_cart(
+            user=self.user,
+            checkout_key=uuid4(),
+            address_id=self.address.pk,
+            shipping_method_id=self.shipping.pk,
+            payment_method_id=self.payment_method.pk,
+            promo_code=None,
+        )
+        self.assertTrue(created)
+        self.assertEqual(order.subtotal, Decimal("0.00"))
+        self.assertEqual(order.total_amount, Decimal("17500.00"))
+        self.assertEqual(order.items.get().price_at_purchase, Decimal("0.00"))
+        self.assertEqual(order.payments.get().payment_amount, Decimal("17500.00"))

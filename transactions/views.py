@@ -5,12 +5,15 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Prefetch
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import (
     require_GET,
     require_POST,
     require_http_methods,
 )
+
+from promotions.services import get_product_pricing
 
 from .models import Cart, Order, Payment, PaymentMethod, ShippingMethod
 from .services import (
@@ -377,11 +380,14 @@ def payment_create(request, order_id):
 def _cart_response(user, *, status=200):
     items = []
     subtotal = Decimal("0.00")
+    pricing_time = timezone.now()
 
     for item in get_cart_items(user=user):
         variant = item.product_variant
         product = variant.product
-        line_total = product.price * item.quantity
+        pricing = get_product_pricing(product, at=pricing_time)
+        unit_price = pricing["final_price"]
+        line_total = unit_price * item.quantity
 
         subtotal += line_total
 
@@ -394,7 +400,11 @@ def _cart_response(user, *, status=200):
             "sku": variant.sku,
             "quantity": item.quantity,
             "stock": variant.stock,
-            "unit_price": str(product.price),
+            "original_unit_price": str(pricing["price"]),
+            "discount_percentage": str(pricing["discount_percentage"]),
+            "discount_amount": str(pricing["discount_amount"]),
+            "promotion": pricing["promotion"],
+            "unit_price": str(unit_price),
             "line_total": str(line_total),
             "is_available": item.quantity <= variant.stock,
         })
