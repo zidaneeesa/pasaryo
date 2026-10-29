@@ -3,6 +3,7 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 
 
+# Metode pengiriman (misal: JNE REG, SiCepat, dll) beserta estimasi dan biaya
 class ShippingMethod(models.Model):
     name = models.CharField(max_length=100)
     estimated_days = models.CharField(max_length=20)
@@ -19,6 +20,7 @@ class ShippingMethod(models.Model):
         return self.name
 
 
+# Metode pembayaran (misal: BCA VA, GoPay, dll) beserta service fee
 class PaymentMethod(models.Model):
     name = models.CharField(max_length=100)
     channel_provider = models.CharField(max_length=100)
@@ -35,11 +37,13 @@ class PaymentMethod(models.Model):
     def __str__(self):
         return self.name
 
+# Enum tipe diskon untuk promo code: persentase atau nominal tetap
 class DiscountType(models.TextChoices):
     PERCENTAGE = "percentage", "Persentase"
     FIXED = "fixed", "Nominal"
 
 
+# Kode promo yang bisa dipakai saat checkout untuk mendapatkan diskon
 class PromoCode(models.Model):
     code = models.CharField(max_length=50, unique=True)
 
@@ -75,6 +79,7 @@ class PromoCode(models.Model):
         return self.code
 
 
+# Pesanan utama, menyimpan ringkasan harga, status, dan relasi ke user/shipping/promo
 class Order(models.Model):
     class Status(models.TextChoices):
         TO_PAY = "to_pay", "To Pay"
@@ -176,6 +181,8 @@ class Order(models.Model):
 
     def __str__(self):
         return self.order_number
+
+# Riwayat tracking pesanan, mencatat setiap perubahan status pengiriman
 class OrderTracking(models.Model):
     class StatusCode(models.TextChoices):
         ORDER_PLACED = "order_placed", "Order Placed"
@@ -213,6 +220,7 @@ class OrderTracking(models.Model):
         db_table = "order_trackings"
         ordering = ["event_time"]
 
+# Pembayaran untuk pesanan, satu pesanan bisa punya beberapa percobaan bayar
 class Payment(models.Model):
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -263,6 +271,7 @@ class Payment(models.Model):
     def __str__(self):
         return self.payment_reference
         
+# Keranjang belanja user, tiap item merujuk ke varian produk tertentu
 class Cart(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -298,6 +307,7 @@ class Cart(models.Model):
             f"Variant {self.product_variant_id} ({self.quantity})"
         )
 
+# Item dalam pesanan, menyimpan snapshot data produk saat checkout
 class OrderItem(models.Model):
     order = models.ForeignKey(
         "Order",
@@ -337,6 +347,7 @@ class OrderItem(models.Model):
             ),
         ]
 
+    # Menghitung total harga per baris (harga × jumlah)
     @property
     def line_total(self):
         return self.price_at_purchase * self.quantity
@@ -345,6 +356,7 @@ class OrderItem(models.Model):
         return f"{self.order_id} - {self.product_name_snapshot}"
 
 
+# Review/ulasan dari pembeli untuk item pesanan yang sudah diterima (rating 1-5)
 class Review(models.Model):
     order_item = models.OneToOneField(
         "OrderItem",

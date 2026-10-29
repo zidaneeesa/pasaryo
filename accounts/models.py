@@ -6,7 +6,10 @@ from django.contrib.auth.models import (
 from django.db import models
 
 
+# Custom manager untuk User, menggunakan email sebagai identifier utama
 class UserManager(BaseUserManager):
+
+    # Membuat user biasa dengan email dan password
     def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError("Email wajib diisi")
@@ -19,6 +22,7 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
+    # Membuat superuser dengan role admin, is_staff, dan is_superuser
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("role", User.Role.ADMIN)
         extra_fields.setdefault("is_staff", True)
@@ -36,6 +40,7 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+# Model user custom, login pakai email, mendukung role ADMIN dan USER
 class User(AbstractBaseUser, PermissionsMixin):
     class Role(models.TextChoices):
         ADMIN = "admin", "Admin"
@@ -67,6 +72,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.email
     
 
+# Alamat pengiriman user, satu user bisa punya banyak alamat tapi hanya 1 alamat utama
 class UserAddress(models.Model):
     user = models.ForeignKey(
         User,

@@ -10,6 +10,8 @@ from promotions.services import (
     with_product_promotions,
 )
 
+
+# Menyiapkan queryset produk dengan relasi kategori, brand, gambar, dan data promosi
 def product_queryset():
     products = Product.objects.select_related(
         "category", "brand"
@@ -18,6 +20,7 @@ def product_queryset():
     return with_product_promotions(products)
 
 
+# Mengubah objek Product menjadi dict untuk response JSON (detail=True untuk info lengkap)
 def product_data(product, detail=False):
     images = list(product.images.all())
     pricing = get_product_pricing(product)
@@ -68,6 +71,7 @@ def product_data(product, detail=False):
     return data
 
 
+# Mengembalikan daftar semua kategori produk
 @require_GET
 def category_list_view(request):
     categories = Category.objects.order_by(
@@ -77,6 +81,7 @@ def category_list_view(request):
     return JsonResponse({"results": list(categories)})
 
 
+# Mengembalikan daftar semua brand produk
 @require_GET
 def brand_list_view(request):
     brands = Brand.objects.order_by(
@@ -86,6 +91,7 @@ def brand_list_view(request):
     return JsonResponse({"results": list(brands)})
 
 
+# Mengembalikan daftar produk dengan filter, sorting, dan paginasi
 @require_GET
 def product_list_view(request):
     form = ProductFilterForm(request.GET)
@@ -142,6 +148,7 @@ def product_list_view(request):
     })
 
 
+# Mengembalikan detail satu produk berdasarkan ID (termasuk varian dan gambar)
 @require_GET
 def product_detail_view(request, product_id):
     try:

@@ -19,6 +19,8 @@ from django.contrib.auth.forms import PasswordChangeForm
 
 from .forms import LoginForm, ProfileForm, RegisterForm
 
+
+# Membaca request body sebagai JSON dict, return None jika invalid
 def read_json(request):
     try:
         data = json.loads(request.body)
@@ -28,6 +30,7 @@ def read_json(request):
     return data if isinstance(data, dict) else None
 
 
+# Mengubah objek User menjadi dict untuk response JSON
 def user_data(user):
     return {
         "id": user.pk,
@@ -39,12 +42,14 @@ def user_data(user):
     }
 
 
+# Mengembalikan CSRF token untuk keperluan client SPA
 @never_cache
 @require_GET
 def csrf_view(request):
     return JsonResponse({"csrf_token": get_token(request)})
 
 
+# Registrasi user baru, validasi via RegisterForm lalu simpan ke database
 @require_POST
 def register_view(request):
     data = read_json(request)
@@ -79,6 +84,7 @@ def register_view(request):
     )
 
 
+# Login user dengan email + password, buat session dan return CSRF token baru
 @require_POST
 def login_view(request):
     data = read_json(request)
@@ -116,6 +122,7 @@ def login_view(request):
     })
 
 
+# Mengembalikan data profil user yang sedang login
 @never_cache
 @require_GET
 def me_view(request):
@@ -128,6 +135,7 @@ def me_view(request):
     return JsonResponse({"user": user_data(request.user)})
 
 
+# Logout user, menghapus session
 @require_POST
 def logout_view(request):
     if not request.user.is_authenticated:
@@ -139,6 +147,8 @@ def logout_view(request):
     logout(request)
     return JsonResponse({"message": "Logout berhasil."})
 
+
+# Update profil user (partial update, field yang tidak dikirim tetap pakai nilai lama)
 @never_cache
 @require_POST
 def profile_update_view(request):
@@ -177,6 +187,7 @@ def profile_update_view(request):
     })
 
 
+# Ganti password user, pakai PasswordChangeForm bawaan Django
 @never_cache
 @require_POST
 def password_change_view(request):

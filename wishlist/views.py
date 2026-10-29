@@ -12,6 +12,7 @@ from .forms import WishlistPageForm
 from .models import Wishlist
 
 
+# GET: daftar wishlist user (dengan paginasi), POST: tambah produk ke wishlist
 @require_http_methods(["GET", "POST"])
 def wishlist_list_view(request):
     if not request.user.is_authenticated:
@@ -115,6 +116,7 @@ def wishlist_list_view(request):
     }, status=201 if created else 200)
 
 
+# Menghapus produk dari wishlist user berdasarkan product_id
 @require_http_methods(["DELETE"])
 def wishlist_delete_view(request, product_id):
     if not request.user.is_authenticated:

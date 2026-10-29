@@ -2,10 +2,12 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
+# Enum tipe diskon, saat ini hanya mendukung persentase
 class DiscountType(models.TextChoices):
     PERCENTAGE = "percentage", "Persentase"
 
 
+# Diskon langsung per produk dengan periode waktu tertentu (dalam persen)
 class Discount(models.Model):
     product = models.ForeignKey(
         "catalog.Product",
@@ -40,6 +42,7 @@ class Discount(models.Model):
         return f"Produk {self.product_id}: {self.discount_value}%"
 
 
+# Event promosi (misal: Flash Sale, Harbolnas) yang bisa mencakup banyak produk
 class Event(models.Model):
     name = models.CharField(max_length=150)
     start_date = models.DateTimeField()
@@ -84,6 +87,7 @@ class Event(models.Model):
         return self.name
 
 
+# Tabel pivot event-produk, bisa override diskon event untuk produk tertentu
 class EventProduct(models.Model):
     event = models.ForeignKey(
         Event,

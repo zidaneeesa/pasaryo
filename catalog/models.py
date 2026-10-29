@@ -1,6 +1,7 @@
 from django.db import models
 
 
+# Kategori produk (misal: Elektronik, Fashion, dll)
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -12,6 +13,7 @@ class Category(models.Model):
         return self.name
 
 
+# Brand/merek produk (misal: Samsung, Nike, dll)
 class Brand(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -22,6 +24,7 @@ class Brand(models.Model):
         return self.name
 
 
+# Produk yang dijual, terhubung ke satu kategori dan satu brand
 class Product(models.Model):
     category = models.ForeignKey(
         Category,
@@ -49,6 +52,7 @@ class Product(models.Model):
         return self.name
 
 
+# Gambar produk, satu produk bisa punya banyak gambar, diurutkan via sort_order
 class ProductImage(models.Model):
     product = models.ForeignKey(
         Product,
@@ -63,6 +67,7 @@ class ProductImage(models.Model):
         ordering = ["sort_order"]
 
 
+# Varian produk berdasarkan warna, tiap varian punya SKU unik dan stok sendiri
 class ProductVariant(models.Model):
     product = models.ForeignKey(
         Product,

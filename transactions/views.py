@@ -28,6 +28,7 @@ from .services import (
     cancel_order,
 )
 
+# Mengembalikan daftar metode pengiriman yang aktif
 @require_GET
 def shipping_method_list(request):
     methods = ShippingMethod.objects.filter(
@@ -47,6 +48,7 @@ def shipping_method_list(request):
     return JsonResponse({"data": data})
 
 
+# Mengembalikan daftar metode pembayaran yang aktif
 @require_GET
 def payment_method_list(request):
     methods = PaymentMethod.objects.filter(
@@ -64,6 +66,8 @@ def payment_method_list(request):
     ]
 
     return JsonResponse({"data": data})
+
+# Mengembalikan riwayat tracking pengiriman untuk satu pesanan
 @require_GET
 def order_tracking(request, order_id):
     if (
@@ -115,6 +119,7 @@ def order_tracking(request, order_id):
         }
     })
 
+# Mengembalikan daftar riwayat pesanan user dengan paginasi
 @require_GET
 def order_history(request):
     if (
@@ -199,6 +204,7 @@ def order_history(request):
         },
     })
 
+# Mengembalikan detail lengkap satu pesanan (termasuk items, payment, tracking)
 @require_GET
 def order_detail(request, order_id):
     if not request.user.is_authenticated or not request.user.is_active:
@@ -290,6 +296,7 @@ def order_detail(request, order_id):
         }
     })
 
+# Membuat pembayaran baru untuk pesanan yang belum dibayar
 @require_POST
 @csrf_protect
 def payment_create(request, order_id):
@@ -377,6 +384,7 @@ def payment_create(request, order_id):
         status=201,
     )
 
+# Menyusun response keranjang belanja lengkap (items, subtotal, info stok)
 def _cart_response(user, *, status=200):
     items = []
     subtotal = Decimal("0.00")
@@ -426,6 +434,7 @@ def _cart_response(user, *, status=200):
     )
 
 
+# Membaca dan validasi payload JSON untuk endpoint keranjang
 def _read_cart_payload(request, *, expected_fields):
     if request.content_type != "application/json":
         return None, JsonResponse(
@@ -455,6 +464,7 @@ def _read_cart_payload(request, *, expected_fields):
     return payload, None
 
 
+# GET: mengembalikan isi keranjang, POST: menambahkan item ke keranjang
 @require_http_methods(["GET", "POST"])
 @csrf_protect
 def cart_collection(request):
@@ -504,6 +514,7 @@ def cart_collection(request):
     )
 
 
+# PATCH: ubah jumlah item keranjang, DELETE: hapus item dari keranjang
 @require_http_methods(["PATCH", "DELETE"])
 @csrf_protect
 def cart_item_detail(request, cart_item_id):
@@ -551,6 +562,7 @@ def cart_item_detail(request, cart_item_id):
 
     return _cart_response(request.user)
 
+# Validasi kode promo terhadap isi keranjang user saat ini
 @require_POST
 @csrf_protect
 def promo_code_validate(request):
@@ -588,6 +600,7 @@ def promo_code_validate(request):
         }
     })
 
+# Konfirmasi pesanan sudah diterima oleh pembeli (ubah status ke completed)
 @require_POST
 @csrf_protect
 def order_complete(request, order_id):
@@ -626,6 +639,7 @@ def order_complete(request, order_id):
         },
     })
 
+# Mengubah daftar order items menjadi list dict untuk response JSON
 def _order_items_data(order):
     return [
         {
@@ -641,6 +655,7 @@ def _order_items_data(order):
         for item in order.items.all()
     ]
 
+# Proses checkout: buat order dari isi keranjang, potong stok, buat pembayaran
 @require_POST
 @csrf_protect
 def checkout_create(request):
@@ -762,6 +777,7 @@ def checkout_create(request):
         status=201 if created else 200,
     )
 
+# Membatalkan pesanan yang belum diproses (status masih to_pay)
 @require_POST
 @csrf_protect
 def order_cancel(request, order_id):
