@@ -2971,6 +2971,48 @@ class CheckoutServiceTests(TestCase):
         self.variant.refresh_from_db()
         self.assertEqual(self.variant.stock, 8)
 
+    def test_selective_checkout_only_processes_chosen_cart_items(self):
+        variant2 = ProductVariant.objects.create(
+            product=self.product,
+            color_name="Putih",
+            stock=15,
+            sku="CHECKOUT-PUTIH-002",
+        )
+        cart_item2 = Cart.objects.create(
+            user=self.user,
+            product_variant=variant2,
+            quantity=4,
+        )
+
+        order, created = self._checkout(cart_ids=[self.cart_item.pk])
+
+        self.assertTrue(created)
+        self.assertEqual(order.items.count(), 1)
+        item = order.items.get()
+        self.assertEqual(item.product_variant_id, self.variant.pk)
+        self.assertEqual(item.quantity, 2)
+        self.assertEqual(order.subtotal, Decimal("200000.00"))
+
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock, 8)
+
+        variant2.refresh_from_db()
+        self.assertEqual(variant2.stock, 15)
+
+        self.assertFalse(Cart.objects.filter(pk=self.cart_item.pk).exists())
+        self.assertTrue(Cart.objects.filter(pk=cart_item2.pk).exists())
+        self.assertEqual(Cart.objects.get(pk=cart_item2.pk).quantity, 4)
+
+    def test_selective_checkout_rejects_invalid_or_foreign_cart_ids(self):
+        with self.assertRaisesMessage(ValidationError, "tidak kosong"):
+            self._checkout(cart_ids=[])
+
+        with self.assertRaisesMessage(ValidationError, "tidak ditemukan"):
+            self._checkout(cart_ids=[999999])
+
+        with self.assertRaisesMessage(ValidationError, "tidak ditemukan"):
+            self._checkout(cart_ids=[self.other_item.pk])
+
 class CheckoutViewTests(TestCase):
     def setUp(self):
         User = get_user_model()
@@ -3130,6 +3172,36 @@ class CheckoutViewTests(TestCase):
             Cart.objects.get(user=self.other_user).quantity,
             1,
         )
+
+    def test_checkout_with_cart_ids_only_processes_selected_items(self):
+        user_item1 = Cart.objects.get(user=self.user)
+
+        variant2 = ProductVariant.objects.create(
+            product=self.product,
+            color_name="Abu-abu",
+            stock=10,
+            sku="CHECKOUT-HTTP-ABU",
+        )
+        user_item2 = Cart.objects.create(
+            user=self.user,
+            product_variant=variant2,
+            quantity=3,
+        )
+
+        response = self._post({
+            **self.payload,
+            "cart_ids": [user_item1.pk],
+        })
+
+        self.assertEqual(response.status_code, 201)
+        data = response.json()["data"]
+
+        self.assertEqual(len(data["items"]), 1)
+        self.assertEqual(data["items"][0]["sku"], self.variant.sku)
+
+        self.assertFalse(Cart.objects.filter(pk=user_item1.pk).exists())
+        self.assertTrue(Cart.objects.filter(pk=user_item2.pk).exists())
+        self.assertEqual(Cart.objects.get(pk=user_item2.pk).quantity, 3)
 
     def test_login_is_required(self):
         self.client.logout()

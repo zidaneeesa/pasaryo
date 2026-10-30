@@ -425,12 +425,40 @@ def remove_cart_item(*, user, cart_item_id):
         raise ValidationError("Item keranjang tidak ditemukan.")
 
 # Menghitung subtotal keranjang secara real-time berdasarkan harga promo aktif saat ini,
+# Menghitung subtotal keranjang secara real-time berdasarkan harga promo aktif saat ini,
 # lalu mengecek kelayakan penggunaan kode promo pada keranjang belanja tersebut.
-def validate_cart_promo_code(*, user, code):
-    items = list(get_cart_items(user=user))
+# [BARU] Mendukung filter cart_ids jika pengguna hanya memilih item tertentu.
+def validate_cart_promo_code(*, user, code, cart_ids=None):
+    cart_query = get_cart_items(user=user)
+
+    # [BARU] Jika cart_ids diberikan, validasi dan filter item keranjang
+    if cart_ids is not None:
+        if isinstance(cart_ids, int) and not isinstance(cart_ids, bool):
+            cart_ids = [cart_ids]
+
+        if not isinstance(cart_ids, (list, tuple)) or not cart_ids:
+            raise ValidationError(
+                "cart_ids harus berupa daftar ID yang tidak kosong."
+            )
+
+        cleaned_ids = []
+        for cid in cart_ids:
+            if type(cid) is not int or not 1 <= cid <= (2**63 - 1):
+                raise ValidationError("ID item keranjang tidak valid.")
+            cleaned_ids.append(cid)
+
+        cart_query = cart_query.filter(pk__in=cleaned_ids)
+
+    items = list(cart_query)
 
     if not items:
+        if cart_ids is not None:
+            raise ValidationError("Item keranjang yang dipilih tidak ditemukan.")
         raise ValidationError("Keranjang masih kosong.")
+
+    # [BARU] Pastikan seluruh item yang diminta ada di keranjang milik pengguna
+    if cart_ids is not None and len(items) != len(set(cleaned_ids)):
+        raise ValidationError("Sebagian item keranjang yang dipilih tidak ditemukan.")
 
     pricing_time = timezone.now()
     subtotal = Decimal("0.00")
@@ -470,6 +498,7 @@ def _checkout_request_data(
     shipping_method_id,
     payment_method_id,
     promo_code,
+    cart_ids=None,  # [BARU] Parameter opsional cart_ids untuk checkout sebagian item
 ):
     try:
         key = UUID(str(checkout_key))
@@ -498,6 +527,27 @@ def _checkout_request_data(
             raise ValidationError("Kode promo tidak valid.")
 
     data["promo_code"] = promo_code
+
+    # [BARU] Validasi daftar ID keranjang (cart_ids) jika dikirimkan
+    if cart_ids is not None:
+        if isinstance(cart_ids, int) and not isinstance(cart_ids, bool):
+            cart_ids = [cart_ids]
+
+        if not isinstance(cart_ids, (list, tuple)) or not cart_ids:
+            raise ValidationError(
+                "cart_ids harus berupa daftar ID yang tidak kosong."
+            )
+
+        cleaned_cart_ids = []
+        for cid in cart_ids:
+            if type(cid) is not int or not 1 <= cid <= (2**63 - 1):
+                raise ValidationError("ID item keranjang tidak valid.")
+            cleaned_cart_ids.append(cid)
+
+        # Disimpan dalam bentuk sorted list unik agar payload konsisten untuk kunci idempoten (checkout_key)
+        data["cart_ids"] = sorted(set(cleaned_cart_ids))
+    else:
+        data["cart_ids"] = None
 
     return key, data
 
@@ -545,6 +595,7 @@ def checkout_cart(
     shipping_method_id,
     payment_method_id,
     promo_code=None,
+    cart_ids=None,  # [BARU] Parameter cart_ids untuk checkout selektif
 ):
     _validate_cart_user(user)
 
@@ -554,6 +605,7 @@ def checkout_cart(
         shipping_method_id=shipping_method_id,
         payment_method_id=payment_method_id,
         promo_code=promo_code,
+        cart_ids=cart_ids,  # [BARU] Diteruskan ke helper validasi request data
     )
 
     locked_user = (
@@ -611,13 +663,24 @@ def checkout_cart(
     if method is None:
         raise ValidationError("Metode pembayaran tidak tersedia.")
 
+    # [BARU] Filter keranjang: jika cart_ids ditentukan, hanya ambil item dengan ID tersebut
+    cart_query = Cart.objects.filter(user=locked_user)
+    selected_cart_ids = request_data["cart_ids"]
+    if selected_cart_ids is not None:
+        cart_query = cart_query.filter(pk__in=selected_cart_ids)
+
     initial_items = dict(
-        Cart.objects.filter(user=locked_user)
-        .values_list("pk", "product_variant_id")
+        cart_query.values_list("pk", "product_variant_id")
     )
 
     if not initial_items:
+        if selected_cart_ids is not None:
+            raise ValidationError("Item keranjang yang dipilih tidak ditemukan.")
         raise ValidationError("Keranjang masih kosong.")
+
+    # [BARU] Pastikan SEMUA item yang diminta pada cart_ids ditemukan milik user ini
+    if selected_cart_ids is not None and len(initial_items) != len(selected_cart_ids):
+        raise ValidationError("Sebagian item keranjang yang dipilih tidak ditemukan.")
 
     variant_ids = set(initial_items.values())
 
@@ -649,12 +712,16 @@ def checkout_cart(
     if len(products) != len(product_ids):
         raise ValidationError("Produk dalam keranjang tidak tersedia.")
 
-    items = list(
+    # [BARU] Kunci baris keranjang yang akan di-checkout (hanya item terpilih jika cart_ids ditentukan)
+    locked_cart_query = (
         Cart.objects
         .select_for_update()
         .filter(user=locked_user)
-        .order_by("pk")
     )
+    if selected_cart_ids is not None:
+        locked_cart_query = locked_cart_query.filter(pk__in=selected_cart_ids)
+
+    items = list(locked_cart_query.order_by("pk"))
 
     current_items = {
         item.pk: item.product_variant_id
