@@ -435,7 +435,8 @@ def _cart_response(user, *, status=200):
 
 
 # Membaca dan validasi payload JSON untuk endpoint keranjang
-def _read_cart_payload(request, *, expected_fields):
+# [BARU] Mendukung optional_fields agar field seperti cart_ids bisa dikirimkan secara opsional
+def _read_cart_payload(request, *, expected_fields, optional_fields=None):
     if request.content_type != "application/json":
         return None, JsonResponse(
             {"message": "Gunakan Content-Type application/json."},
@@ -450,9 +451,12 @@ def _read_cart_payload(request, *, expected_fields):
             status=400,
         )
 
+    allowed_fields = expected_fields | (optional_fields or set())
+
     if (
         not isinstance(payload, dict)
-        or set(payload) != expected_fields
+        or not expected_fields.issubset(payload)
+        or not set(payload).issubset(allowed_fields)
     ):
         fields = ", ".join(sorted(expected_fields))
 
@@ -563,6 +567,7 @@ def cart_item_detail(request, cart_item_id):
     return _cart_response(request.user)
 
 # Validasi kode promo terhadap isi keranjang user saat ini
+# [BARU] Mendukung cart_ids opsional agar promo dapat dihitung khusus untuk item keranjang yang dipilih
 @require_POST
 @csrf_protect
 def promo_code_validate(request):
@@ -572,18 +577,22 @@ def promo_code_validate(request):
             status=401,
         )
 
+    # [BARU] Izinkan cart_ids dikirim sebagai field opsional
     payload, error = _read_cart_payload(
         request,
         expected_fields={"code"},
+        optional_fields={"cart_ids"},
     )
 
     if error is not None:
         return error
 
     try:
+        # [BARU] Meneruskan cart_ids ke validate_cart_promo_code
         promo, subtotal, discount = validate_cart_promo_code(
             user=request.user,
             code=payload["code"],
+            cart_ids=payload.get("cart_ids"),
         )
     except ValidationError as exc:
         return JsonResponse(
@@ -685,7 +694,8 @@ def checkout_create(request):
         "shipping_method_id",
         "payment_method_id",
     }
-    allowed_fields = required_fields | {"promo_code"}
+    # [BARU] Menambahkan cart_ids ke allowed_fields sebagai opsional
+    allowed_fields = required_fields | {"promo_code", "cart_ids"}
 
     if (
         not isinstance(payload, dict)
@@ -696,13 +706,14 @@ def checkout_create(request):
             {
                 "message": (
                     "Kirim checkout_key, address_id, shipping_method_id, "
-                    "dan payment_method_id. Field promo_code bersifat opsional."
+                    "dan payment_method_id. Field promo_code dan cart_ids bersifat opsional."
                 )
             },
             status=400,
         )
 
     try:
+        # [BARU] Meneruskan cart_ids=payload.get("cart_ids") ke checkout_cart
         order, created = checkout_cart(
             user=request.user,
             checkout_key=payload["checkout_key"],
@@ -710,6 +721,7 @@ def checkout_create(request):
             shipping_method_id=payload["shipping_method_id"],
             payment_method_id=payload["payment_method_id"],
             promo_code=payload.get("promo_code"),
+            cart_ids=payload.get("cart_ids"),
         )
     except ValidationError as exc:
         return JsonResponse(
